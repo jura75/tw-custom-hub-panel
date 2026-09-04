@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TW Workbench - 1. Таблица войск (Идеальные фильтры)
-// @namespace    http://tampermonkey.net/
-// @version      1.4.2
+// @namespace    https://github.com/jura75/tw-custom-hub-panel
+// @version      1.4.3
 // @description  Воркбенч аккаунта: единый точный порядок юнитов для своих и племени, компактные фильтры, сравнение чисел и стабильный UI.
 // @match        https://*.plemiona.pl/*
 // @match        https://*.voyna-plemen.ru/*
@@ -42,7 +42,11 @@
                     <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">3. Сбор координат (Карта)</div>
                     <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">4. База координат</div>
                     <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">5. Координаты цели</div>
-                    <button id="ra_wb_close" style="margin-left: auto; background: #c5a059; border: 1px solid #7d510f; color: #fff; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 3px;">×</button>
+                    
+                    <!-- Кнопка-ссылка на GitHub в шапке -->
+                    <a href="https://github.com/jura75/tw-custom-hub-panel" target="_blank" style="margin-left: auto; background: #f4ecd8; border: 1px solid #7d510f; color: #5b3511; font-weight: bold; text-decoration: none; padding: 2px 8px; border-radius: 3px; font-size: 10px;" title="Открыть репозиторий GitHub">GitHub ↗</a>
+
+                    <button id="ra_wb_close" style="background: #c5a059; border: 1px solid #7d510f; color: #fff; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 3px;">×</button>
                 </div>
 
                 <!-- Панель управления -->
@@ -92,31 +96,27 @@
 
     // ==========================================
     // ЕДИНЫЙ ТОЧНЫЙ МАППИНГ ЮНИТОВ ДЛЯ ВСЕХ ИСТОЧНИКОВ
-    // Порядок: Копья, Мечи, Топоры, Луки, Скауты, ЛК, КЛ-лучники, ТК, Тараны, Каты, Паладин, Дворянин
     // ==========================================
     function mapUnitsCorrectly(raw, hasArchers) {
         let mapped = new Array(12).fill(0);
 
         if (hasArchers) {
-            // В мирах с луками порядок на странице обычно совпадает с игровым (12 юнитов)
             for (let i = 0; i < Math.min(raw.length, 12); i++) {
                 mapped[i] = raw[i] || 0;
             }
         } else {
-            // В мирах без луков на странице обзора идут: 
-            // 0:Копья, 1:Мечи, 2:Топоры, 3:Скауты, 4:ЛК, 5:ТК, 6:Тараны, 7:Каты, 8:Паладин, 9:Дворянин
-            mapped[0] = raw[0] || 0; // Копья
-            mapped[1] = raw[1] || 0; // Мечи
-            mapped[2] = raw[2] || 0; // Топоры
-            mapped[3] = 0;           // Луки (нет в мире)
-            mapped[4] = raw[3] || 0; // Лазутчики (скауты)
-            mapped[5] = raw[4] || 0; // Лёгкая кавалерия (ЛК)
-            mapped[6] = 0;           // КЛ-лучники (нет в мире)
-            mapped[7] = raw[5] || 0; // Тяжёлая кавалерия (ТК)
-            mapped[8] = raw[6] || 0; // Тараны
-            mapped[9] = raw[7] || 0; // Катапульты
-            mapped[10] = raw[8] || 0; // Паладин
-            mapped[11] = raw[9] || 0; // Дворянин
+            mapped[0] = raw[0] || 0; 
+            mapped[1] = raw[1] || 0; 
+            mapped[2] = raw[2] || 0; 
+            mapped[3] = 0;           
+            mapped[4] = raw[3] || 0; 
+            mapped[5] = raw[4] || 0; 
+            mapped[6] = 0;           
+            mapped[7] = raw[5] || 0; 
+            mapped[8] = raw[6] || 0; 
+            mapped[9] = raw[7] || 0; 
+            mapped[10] = raw[8] || 0; 
+            mapped[11] = raw[9] || 0; 
         }
         return mapped;
     }
@@ -152,7 +152,6 @@
             let transit_tds = trs[3] ? trs[3].querySelectorAll('td.unit-item') : [];
 
             let rawUnits = [];
-            // Проходим по ячейкам юнитов в строке таблицы
             for (let i = 0; i < available_tds.length; i++) {
                 let av = parseInt(available_tds[i].textContent.replace(/\./g, '')) || 0;
                 let ow = outward_tds[i] ? (parseInt(outward_tds[i].textContent.replace(/\./g, '')) || 0) : 0;
@@ -616,7 +615,7 @@
         let startX = 0, startY = 0, initialX = 0, initialY = 0;
 
         $handle.on('mousedown', function(e) {
-            if ($(e.target).is('button, input')) return;
+            if ($(e.target).is('button, input, a')) return;
             e.preventDefault();
             
             startX = e.clientX;
