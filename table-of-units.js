@@ -1,8 +1,7 @@
 // ==UserScript==
 // @name         TW Workbench - 1. Таблица войск (Идеальные фильтры)
-// @namespace    https://github.com/jura75/tw-custom-hub-panel
-// @version      1.4.3
-// @description  Воркбенч аккаунта: единый точный порядок юнитов для своих и племени, компактные фильтры, сравнение чисел и стабильный UI.
+// @version      1.4.5
+// @description  Воркбенч аккаунта: единый точный порядок юнитов, запоминание настроек луков, парсинг «Своих» с первой строчки.
 // @match        https://*.plemiona.pl/*
 // @match        https://*.voyna-plemen.ru/*
 // @match        https://*.tribalwars.net/*
@@ -16,6 +15,7 @@
     // МОДУЛЬ 1: КОНСТАНТЫ И СОСТОЯНИЕ
     // ==========================================
     const STORAGE_KEY = 'ra_wb_troops_data_v6';
+    const SETTINGS_KEY = 'ra_wb_settings_v1';
     let globalTroopsData = [];
 
     // ==========================================
@@ -31,32 +31,27 @@
     }
 
     function createUI() {
+        // Восстанавливаем сохраненное состояние чекбокса луков (по умолчанию false / снят)
+        let savedArchers = localStorage.getItem(SETTINGS_KEY + '_archers');
+        let hasArchersChecked = savedArchers !== null ? JSON.parse(savedArchers) : false;
+
         const html = `
             <div id="ra_workbench_main" style="position: fixed; top: 60px; left: 50px; width: 1180px; height: 600px; z-index: 99999; background: #fff8eb; border: 2px solid #7d510f; border-radius: 4px; display: flex; flex-direction: column; font-family: Verdana, Arial; font-size: 11px; box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
                 
-                <!-- Шапка воркбенча и вкладки -->
-                <div id="ra_wb_header" style="background: #e2c08e; padding: 6px 10px; border-bottom: 2px solid #7d510f; display: flex; align-items: center; gap: 6px; cursor: move; user-select: none;">
-                    <span style="font-weight: bold; color: #5b3511; margin-right: 10px;">Воркбенч Аккаунта (TW Workbench v2.0)</span>
-                    <div style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; color: #5b3511; border-radius: 3px 3px 0 0; border-bottom: none;">1. Таблица войск</div>
-                    <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">2. Выбранные войска</div>
-                    <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">3. Сбор координат (Карта)</div>
-                    <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">4. База координат</div>
-                    <div style="background: #d4b17e; padding: 4px 10px; color: #5b3511; border: 1px solid #a67c3e; border-radius: 3px 3px 0 0; opacity: 0.8;">5. Координаты цели</div>
-                    
-                    <!-- Кнопка-ссылка на GitHub в шапке -->
-                    <a href="https://github.com/jura75/tw-custom-hub-panel" target="_blank" style="margin-left: auto; background: #f4ecd8; border: 1px solid #7d510f; color: #5b3511; font-weight: bold; text-decoration: none; padding: 2px 8px; border-radius: 3px; font-size: 10px;" title="Открыть репозиторий GitHub">GitHub ↗</a>
-
+                <!-- Компактная шапка воркбенча -->
+                <div id="ra_wb_header" style="background: #e2c08e; padding: 6px 10px; border-bottom: 2px solid #7d510f; display: flex; align-items: center; justify-content: space-between; cursor: move; user-select: none;">
+                    <span style="font-weight: bold; color: #5b3511;">Таблица войск (TW Workbench)</span>
                     <button id="ra_wb_close" style="background: #c5a059; border: 1px solid #7d510f; color: #fff; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 3px;">×</button>
                 </div>
 
                 <!-- Панель управления -->
                 <div style="background: #f4ecd8; padding: 8px; border-bottom: 1px solid #c5a059; display: flex; align-items: center; gap: 8px;">
-                    <button id="btn_fetch_troops" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;" title="Суммарно свои войска со страницы Обзор->Войска">Снять со страницы</button>
+                    <button id="btn_fetch_troops" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;" title="Снять свои войска со страницы Обзор->Войска">Снять со страницы</button>
                     <button id="btn_fetch_ally" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;" title="Собрать войска со страниц обзора племени">Войска племени</button>
                     <button id="btn_clear_troops" style="background: #d9534f; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #fff;">Очистить</button>
                     
                     <label style="margin-left: 10px; font-weight: bold; color: #5b3511; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                        <input type="checkbox" id="world_has_archers" checked style="cursor: pointer;"> Мир с луками
+                        <input type="checkbox" id="world_has_archers" ${hasArchersChecked ? 'checked' : ''} style="cursor: pointer;"> Мир с луками
                     </label>
 
                     <!-- Меню сохранения -->
@@ -122,7 +117,7 @@
     }
 
     // ==========================================
-    // МОДУЛЬ 3: ПАРСИНГ СВОИХ ВОЙСК СО СТРАНИЦЫ
+    // МОДУЛЬ 3: ПАРСИНГ СВОИХ ВОЙСК (ТОЛЬКО СТРОКА «СВОИ»)
     // ==========================================
     function parseTroops() {
         let container = document.querySelector('table#units_table');
@@ -147,16 +142,13 @@
             let coords = matchCoord[1];
 
             let trs = row.querySelectorAll('tr');
+            // Считываем войска исключительно из первой строчки trs[0] («Свои»)
             let available_tds = trs[0] ? trs[0].querySelectorAll('td.unit-item') : [];
-            let outward_tds = trs[2] ? trs[2].querySelectorAll('td.unit-item') : [];
-            let transit_tds = trs[3] ? trs[3].querySelectorAll('td.unit-item') : [];
 
             let rawUnits = [];
             for (let i = 0; i < available_tds.length; i++) {
-                let av = parseInt(available_tds[i].textContent.replace(/\./g, '')) || 0;
-                let ow = outward_tds[i] ? (parseInt(outward_tds[i].textContent.replace(/\./g, '')) || 0) : 0;
-                let tr = transit_tds[i] ? (parseInt(transit_tds[i].textContent.replace(/\./g, '')) || 0) : 0;
-                rawUnits.push(av + ow + tr);
+                let val = parseInt(available_tds[i].textContent.replace(/\./g, '')) || 0;
+                rawUnits.push(val);
             }
 
             let units = mapUnitsCorrectly(rawUnits, hasArchers);
@@ -398,7 +390,7 @@
     }
 
     // ==========================================
-    // МОДУЛЬ 6: СОБЫТИЯ И КОМПАКТНЫЙ ФИЛЬТР
+    // МОДУЛЬ 6: СОБЫТИЯ И ПАМЯТЬ НАСТРОЕК
     // ==========================================
     function bindEvents() {
         $('#ra_wb_close').on('click', () => $('#ra_workbench_main').remove());
@@ -411,6 +403,10 @@
         $('#btn_fetch_ally').on('click', parseAllyTroops);
 
         $('#world_has_archers').on('change', function() {
+            let isChecked = $(this).is(':checked');
+            // Сохраняем выбор в localStorage для памяти настроек
+            localStorage.setItem(SETTINGS_KEY + '_archers', JSON.stringify(isChecked));
+            
             updateHeaderColumns();
             renderTable(globalTroopsData);
         });
