@@ -41,13 +41,13 @@ javascript:(function() {
             <button class="tw-hub-tab-btn" data-tab="3" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Вкладка 3</button>
             <button class="tw-hub-tab-btn" data-tab="4" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Вкладка 4</button>
             <button class="tw-hub-tab-btn" data-tab="5" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Вкладка 5</button>
-            <button class="tw-hub-tab-btn" data-tab="6" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Вкладка 6</button>
+            <button class="tw-hub-tab-btn" data-tab="6" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Мультипланер</button>
         </div>
 
         <!-- Контейнер, где будет отображаться контент выбранной вкладки -->
         <div id="tw-hub-content-container" style="flex: 1; background: #fff8eb; color: #5b3511; padding: 15px; overflow: auto; position: relative;">
             <h3 style="margin-top:0;">Приветствуем в Хабе!</h3>
-            <p>Выберите нужную вкладку сверху. Ссылки и скрипты мы закрепим за ними позже.</p>
+            <p>Выберите нужную вкладку сверху.</p>
         </div>
 
         <!-- Нижняя строка состояния -->
@@ -65,8 +65,8 @@ javascript:(function() {
     // Логика переключения вкладок
     function loadTabContent(tabId) {
         let container = document.getElementById('tw-hub-content-container');
-        
-        // Здесь в будущем будем подгружать нужные скрипты или интерфейсы под каждую вкладку
+        container.innerHTML = ''; // Очищаем контейнер
+
         if (tabId === '1') {
             container.innerHTML = `<h3>📋 Вкладка №1</h3><p>Здесь будет интерфейс первого скрипта.</p>`;
         } else if (tabId === '2') {
@@ -78,14 +78,58 @@ javascript:(function() {
         } else if (tabId === '5') {
             container.innerHTML = `<h3>⏱️ Вкладка №5</h3><p>Здесь будет интерфейс пятого скрипта.</p>`;
         } else if (tabId === '6') {
-            container.innerHTML = `<h3>⚡ Вкладка №6</h3><p>Здесь будет интерфейс шестого скрипта.</p>`;
+            container.innerHTML = `<h3>⚡ Загрузка Мультипланера...</h3><p>Получаем данные с GitHub...</p>`;
+            
+            // Включаем слежку за появлением всплывающих окон на странице
+            let observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1 && node.id !== 'tw-custom-hub-panel') {
+                            let style = window.getComputedStyle(node);
+                            // Если скрипт попытался создать плавающее/фиксированное окно
+                            if (style.position === 'fixed' || style.position === 'absolute') {
+                                node.style.position = 'relative';
+                                node.style.top = '0';
+                                node.style.left = '0';
+                                node.style.transform = 'none';
+                                node.style.margin = '0';
+                                node.style.width = '100%';
+                                node.style.height = '100%';
+                                node.style.boxSizing = 'border-box';
+                                
+                                // Перехватываем и переносим внутрь нашего контейнера
+                                container.innerHTML = '';
+                                container.appendChild(node);
+                                observer.disconnect();
+                            }
+                        }
+                    });
+                });
+            });
+            observer.observe(document.body, { childList: true, subtree: false });
+
+            // Загружаем сам скрипт с GitHub
+            fetch('https://raw.githubusercontent.com/jura75/tw-custom-hub-panel/refs/heads/main/tw-snipe-planner.js?_=' + Date.now())
+                .then(response => {
+                    if (!response.ok) throw new Error('Не удалось загрузить файл с GitHub');
+                    return response.text();
+                })
+                .then(scriptCode => {
+                    let s = document.createElement('script');
+                    s.textContent = scriptCode;
+                    document.body.appendChild(s);
+                    s.remove();
+                })
+                .catch(err => {
+                    observer.disconnect();
+                    container.innerHTML = `<h3 style="color: #b22222;">❌ Ошибка загрузки</h3><p>${err.message}</p>`;
+                });
         }
     }
 
     // Обработчики кликов по кнопкам вкладок
     panel.querySelectorAll('.tw-hub-tab-btn').forEach(btn => {
         btn.onclick = function() {
-            // Меняем визуальное состояние кнопок
             panel.querySelectorAll('.tw-hub-tab-btn').forEach(b => {
                 b.style.background = '#3b2812';
                 b.style.color = '#f4e4bc';
@@ -95,7 +139,6 @@ javascript:(function() {
             this.style.color = '#fff';
             this.classList.add('active');
 
-            // Загружаем контент
             let tabId = this.getAttribute('data-tab');
             loadTabContent(tabId);
         };
