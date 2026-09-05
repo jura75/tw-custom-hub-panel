@@ -28,9 +28,9 @@
     `;
 
     panel.innerHTML = `
-        <!-- Шапка панели -->
-        <div style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none;">
-            <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Внутренняя рабочая среда</b>
+        <!-- Шапка панели (теперь перетаскиваемая) -->
+        <div id="tw-hub-header" style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none; cursor: move;">
+            <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Внутренняя рабочая среда (Перетаскиваемая)</b>
             <span id="tw-hub-close" style="cursor: pointer; color: #a63a3a; font-weight: bold; font-size: 16px; padding: 0 4px;">✕</span>
         </div>
         
@@ -42,6 +42,7 @@
             <button class="tw-hub-tab-btn" data-tab="4" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">4. База координат</button>
             <button class="tw-hub-tab-btn" data-tab="5" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">5. Координаты цели</button>
             <button class="tw-hub-tab-btn" data-tab="6" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Мультипланер</button>
+            <button class="tw-hub-tab-btn" data-tab="7" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">7. Захваты мира</button>
         </div>
 
         <!-- Контейнер для контента выбранной вкладки -->
@@ -51,13 +52,39 @@
 
         <!-- Нижняя строка состояния -->
         <div style="background: #1a1006; padding: 5px 12px; font-size: 10px; color: #a98a5c; border-top: 1px solid #7d510f; display: flex; justify-content: space-between;">
-            <span>Статус: Панель активна</span>
-            <span>Потяните за правый нижний угол, чтобы изменить размер 📐</span>
+            <span>Статус: Панель активна (Модуль захватов мира ВКЛ)</span>
+            <span>Потяните за верхнюю шапку для перемещения, за правый нижний угол — для изменения размера 📐</span>
         </div>
     `;
 
     document.body.appendChild(panel);
     document.getElementById('tw-hub-close').onclick = () => panel.remove();
+
+    // Реализация перетаскивания окна хаба за шапку
+    let isHubDragging = false, hubStartX = 0, hubStartY = 0;
+    let hubHeader = document.getElementById('tw-hub-header');
+    
+    hubHeader.onmousedown = function(e) {
+        if (e.target.id === 'tw-hub-close') return;
+        isHubDragging = true;
+        hubStartX = e.clientX - panel.offsetLeft;
+        hubStartY = e.clientY - panel.offsetTop;
+        panel.style.transform = 'none'; // Сбрасываем центрирование по translateX для свободного перетаскивания
+        document.addEventListener('mousemove', onHubDrag);
+        document.addEventListener('mouseup', onHubDragEnd);
+    };
+
+    function onHubDrag(e) {
+        if (!isHubDragging) return;
+        panel.style.left = (e.clientX - hubStartX) + 'px';
+        panel.style.top = (e.clientY - hubStartY) + 'px';
+    }
+
+    function onHubDragEnd() {
+        isHubDragging = false;
+        document.removeEventListener('mousemove', onHubDrag);
+        document.removeEventListener('mouseup', onHubDragEnd);
+    }
 
     window._twMapCache = window._twMapCache || {
         mapDataLoaded: false,
@@ -228,7 +255,7 @@
                     .map-view-wrapper { position: relative; display: inline-block; min-width: 100%; min-height: 100%; }
                     #map_grid_canvas { display: block; background: #5e8238; }
                     #map_selection_box { position: absolute; border: 2px dashed #ffff00; background: rgba(255, 255, 0, 0.2); pointer-events: none; display: none; z-index: 50; }
-                    #map_tooltip { position: absolute; display: none; background: rgba(0, 0, 0, 0.85); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; z-index: 10000; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.4); line-height: 1.4; white-space: nowrap; }
+                    #map_tooltip { position: fixed; display: none; background: rgba(0, 0, 0, 0.85); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; z-index: 200000; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.4); line-height: 1.4; white-space: nowrap; }
                     .diplomacy-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; background: #faf4e8; padding: 3px; border-radius: 3px; border: 1px solid #e0d0b0; }
                     .diplomacy-row span.d-tag { font-weight: bold; color: #5b3511; width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
                     .diplomacy-row select { flex-grow: 1; font-size: 10px; height: 22px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; }
@@ -242,7 +269,7 @@
                         <div class="map-sidebar">
                             <div style="background: #f5e8cd; border: 1px solid #c5a059; border-radius: 3px; padding: 8px;">
                                 <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 5px;">🌍 Загрузка карты мира</b>
-                                <button id="map_btn_load_data" style="width: 100%; background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 5px; cursor: pointer; border-radius: 3px; font-size: 10px;">Загрузить с сервера</button>
+                                <button id="map_btn_load_data" style="width: 100%; background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 5px; cursor: pointer; border-radius: 3px; font-size: 10px;">Загрузить с сервера игры</button>
                                 <div id="map_load_status" style="font-size: 10px; color: #666; margin-top: 4px;">${window._twMapCache.loadStatusText}</div>
                             </div>
                             <div style="background: #f5e8cd; border: 1px solid #c5a059; border-radius: 3px; padding: 8px;">
@@ -254,7 +281,7 @@
                                 </div>
                                 <div id="map_custom_players_list" style="max-height: 80px; overflow-y: auto; border: 1px solid #c5a059; background: #fff; padding: 3px; border-radius: 2px; margin-bottom: 5px;"></div>
                                 <b style="font-size: 10px; color: #5b3511; display: block; margin-bottom: 2px;">Список племён:</b>
-                                <div id="diplomacy_list_container"><div style="font-style: italic; color: #888; font-size: 10px; text-align: center; padding: 10px;">Сначала нажмите «Загрузить с сервера»</div></div>
+                                <div id="diplomacy_list_container"><div style="font-style: italic; color: #888; font-size: 10px; text-align: center; padding: 10px;">Сначала нажмите «Загрузить с сервера игры»</div></div>
                                 <div style="display: flex; gap: 4px; margin-top: 5px;">
                                     <button id="map_btn_apply_dip" style="flex: 2; background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 4px; cursor: pointer; border-radius: 3px; font-size: 10px;">Применить раскраску</button>
                                     <button id="map_btn_reset_dip" style="flex: 1; background: #d9534f; color: #fff; border: 1px solid #7d510f; font-weight: bold; padding: 4px; cursor: pointer; border-radius: 3px; font-size: 10px;" title="Сбросить все сохраненные цвета племён">Сбросить цвета</button>
@@ -360,7 +387,7 @@
                 }
                 if (!cache.mapDataLoaded || cache.villagesData.length === 0) {
                     ctx.fillStyle = '#fff'; ctx.font = '14px Verdana'; ctx.textAlign = 'left';
-                    ctx.fillText('Нажмите «Загрузить с сервера» слева', 20, 40);
+                    ctx.fillText('Нажмите «Загрузить с сервера игры» слева', 20, 40);
                     return;
                 }
                 cache.villagesData.forEach(v => {
@@ -454,8 +481,13 @@
 
             document.getElementById('map_btn_load_data').onclick = function() {
                 let status = document.getElementById('map_load_status');
-                status.textContent = 'Загрузка...';
-                Promise.all([$.get('map/village.txt'), $.get('map/player.txt'), $.get('map/ally.txt')]).then(([vTxt, pTxt, aTxt]) => {
+                status.textContent = 'Загрузка данных с игрового сервера...';
+                
+                Promise.all([
+                    $.get('/map/village.txt'), 
+                    $.get('/map/player.txt'), 
+                    $.get('/map/ally.txt')
+                ]).then(([vTxt, pTxt, aTxt]) => {
                     cache.tribesData = {};
                     aTxt.trim().split('\n').forEach(line => {
                         let p = line.split(',');
@@ -477,6 +509,9 @@
                     status.textContent = `Загружено деревень: ${cache.villagesData.length}`;
                     cache.loadStatusText = status.textContent;
                     renderTribesList(); redrawMap();
+                }).catch(err => {
+                    status.textContent = 'Ошибка загрузки файлов мира';
+                    console.error(err);
                 });
             };
 
@@ -570,19 +605,29 @@
                 let cX = e.clientX - rect.left, cY = e.clientY - rect.top;
                 let xCoord = Math.floor(cX / cache.tileSize), yCoord = Math.floor(cY / cache.tileSize);
                 document.getElementById('map_coords_status_bar').textContent = `Координаты: X(${xCoord}) Y(${yCoord}) | Зум: ${cache.tileSize}px`;
+                
                 let found = cache.villagesData.find(v => v.x === xCoord && v.y === yCoord);
                 if (found) {
                     tooltip.style.display = 'block';
-                    tooltip.style.left = (e.pageX - panel.getBoundingClientRect().left + 15) + 'px';
-                    tooltip.style.top = (e.pageY - panel.getBoundingClientRect().top + 15) + 'px';
+                    // Окно теперь следует рядом с крестиком мышки на экране (позиционирование fixed по e.clientX / e.clientY)
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
                     tooltip.innerHTML = `<b>${found.name}</b> (${found.x}|${found.y})<br>Игрок: ${found.playerName} [${found.tribeTag}]`;
-                } else { tooltip.style.display = 'none'; }
+                } else { 
+                    tooltip.style.display = 'none'; 
+                }
+
                 if (!isDragging) return;
                 selectionBox.style.left = Math.min(startX, cX) + 'px';
                 selectionBox.style.top = Math.min(startY, cY) + 'px';
                 selectionBox.style.width = Math.abs(cX - startX) + 'px';
                 selectionBox.style.height = Math.abs(cY - startY) + 'px';
             };
+            
+            canvas.onmouseleave = function() {
+                tooltip.style.display = 'none';
+            };
+
             window.onmouseup = function(e) {
                 if (!isDragging) return;
                 isDragging = false;
@@ -957,6 +1002,269 @@
                     }, 500);
 
                 }).catch(err => { container.innerHTML = `<div style="padding:15px; color:red;">Ошибка загрузки Мультипланера</div>`; });
+
+        } else if (tabId === '7') {
+            container.innerHTML = `
+                <div style="padding: 10px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff8eb;">
+                    <!-- Верхняя панель фильтров и управления -->
+                    <div style="background: #f5e8cd; border: 1px solid #c5a059; border-radius: 3px; padding: 10px; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 2px;">🌍 Лог захватов</b>
+                            <button id="hub_conquers_load" style="background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px;">Загрузить захваты мира</button>
+                        </div>
+                        <div>
+                            <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 2px;">Поиск (Ник / Тег):</b>
+                            <input type="text" id="hub_conquers_filter_inp" placeholder="Введите ник или тег..." style="font-size: 10px; padding: 4px; border: 1px solid #c5a059; border-radius: 3px; background: #fff; width: 120px;" disabled>
+                        </div>
+                        <div>
+                            <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 2px;">Племя:</b>
+                            <select id="hub_conquers_filter_tribe" style="font-size: 10px; padding: 4px; border: 1px solid #c5a059; border-radius: 3px; background: #fff; width: 120px;" disabled>
+                                <option value="">Все племена</option>
+                            </select>
+                        </div>
+                        <div>
+                            <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 2px;">Дата от:</b>
+                            <input type="date" id="hub_conquers_date_from" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 3px; background: #fff;" disabled>
+                        </div>
+                        <div>
+                            <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 2px;">Дата до:</b>
+                            <input type="date" id="hub_conquers_date_to" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 3px; background: #fff;" disabled>
+                        </div>
+                        <div style="margin-left: auto; display: flex; gap: 6px; align-items: flex-end;">
+                            <span id="hub_conquers_counter" style="font-size: 10px; font-weight: bold; color: #5b3511;">Захентов: 0</span>
+                            <button id="hub_conquers_copy" style="background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px;">Копировать блокнот</button>
+                            <button id="hub_conquers_send_db" style="background: #5cb85c; border: 1px solid #4cae4c; color: #fff; font-weight: bold; padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px;" title="Отправить захваченные деревни в Базу (Вкладка 4)">В базу 4</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Контейнер с полосами прокрутки для таблицы захватов -->
+                    <div style="flex-grow: 1; border: 1px solid #c5a059; border-radius: 3px; background: #fff; display: flex; flex-direction: column; overflow: auto; max-height: 480px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; color: #333;">
+                            <thead>
+                                <tr style="background: #e2c08e; border-bottom: 2px solid #c5a059; text-align: left; color: #5b3511; font-weight: bold; position: sticky; top: 0; z-index: 5;">
+                                    <th style="padding: 6px; background: #e2c08e;">Деревня</th>
+                                    <th style="padding: 6px; text-align: right; background: #e2c08e;">Очки</th>
+                                    <th style="padding: 6px; background: #e2c08e;">Старый владелец</th>
+                                    <th style="padding: 6px; background: #e2c08e;">Новый владелец</th>
+                                    <th style="padding: 6px; background: #e2c08e;">Дата / Время</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hub_conquers_tbody">
+                                <tr><td colspan="5" style="text-align: center; color: #888; font-style: italic; padding: 25px;">Нажмите «Загрузить захваты мира», чтобы подгрузить данные с сервера игры.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            let conquersCache = {
+                loaded: false,
+                conquersList: [],
+                tribesList: []
+            };
+
+            document.getElementById('hub_conquers_load').onclick = function() {
+                let btn = this;
+                btn.textContent = 'Загрузка...';
+                
+                Promise.all([
+                    $.get('/map/conquer.txt').catch(() => $.get('/map/kill.txt').catch(() => '')),
+                    $.get('/map/village.txt'),
+                    $.get('/map/player.txt'),
+                    $.get('/map/ally.txt')
+                ]).then(([cTxt, vTxt, pTxt, aTxt]) => {
+                    let tribes = {};
+                    let tribeNamesSet = new Set();
+                    aTxt.trim().split('\n').forEach(line => {
+                        let p = line.split(',');
+                        if (p.length >= 3) {
+                            let tTag = decodeURIComponent(p[2].replace(/\+/g, ' '));
+                            tribes[p[0]] = tTag;
+                            tribeNamesSet.add(tTag);
+                        }
+                    });
+
+                    conquersCache.tribesList = Array.from(tribeNamesSet).sort();
+                    let tribeSelect = document.getElementById('hub_conquers_filter_tribe');
+                    tribeSelect.innerHTML = '<option value="">Все племена</option>' + conquersCache.tribesList.map(t => `<option value="${t}">[${t}]</option>`).join('');
+
+                    let players = {};
+                    let playerAlly = {};
+                    pTxt.trim().split('\n').forEach(line => {
+                        let p = line.split(',');
+                        if (p.length >= 4) {
+                            let pName = decodeURIComponent(p[1].replace(/\+/g, ' '));
+                            players[p[0]] = pName;
+                            let tTag = tribes[p[2]] || '';
+                            playerAlly[p[0]] = tTag ? ` [${tTag}]` : '';
+                        }
+                    });
+
+                    let villages = {};
+                    vTxt.trim().split('\n').forEach(line => {
+                        let p = line.split(',');
+                        if (p.length >= 6) {
+                            villages[p[0]] = {
+                                name: decodeURIComponent(p[1].replace(/\+/g, ' ')),
+                                x: p[2], y: p[3],
+                                points: parseInt(p[5]) || 0
+                            };
+                        }
+                    });
+
+                    conquersCache.conquersList = [];
+                    if (cTxt && typeof cTxt === 'string' && cTxt.trim().length > 0) {
+                        cTxt.trim().split('\n').forEach(line => {
+                            let p = line.split(',');
+                            if (p.length >= 4) {
+                                let vId = p[0];
+                                let timestamp = parseInt(p[1]) || 0;
+                                let newPId = p[2];
+                                let oldPId = p[3];
+
+                                let vInfo = villages[vId] || { name: 'Неизвестно', x: '0', y: '0', points: 0 };
+                                let newName = players[newPId] ? players[newPId] + (playerAlly[newPId] || '') : 'Варвар';
+                                let oldName = oldPId !== '0' && players[oldPId] ? players[oldPId] + (playerAlly[oldPId] || '') : 'Варвар';
+                                
+                                let dateObj = timestamp > 0 ? new Date(timestamp * 1000) : null;
+                                let dateStr = dateObj ? dateObj.toLocaleString() : 'Неизвестно';
+                                let dateIso = dateObj ? dateObj.toISOString().split('T')[0] : '';
+
+                                conquersCache.conquersList.push({
+                                    villageName: vInfo.name,
+                                    coord: `${vInfo.x}|${vInfo.y}`,
+                                    points: vInfo.points,
+                                    oldOwner: oldName,
+                                    newOwner: newName,
+                                    date: dateStr,
+                                    dateIso: dateIso,
+                                    rawSearchText: `${vInfo.name} ${vInfo.x}|${vInfo.y} ${oldName} ${newName}`.toLowerCase()
+                                });
+                            }
+                        });
+                    }
+
+                    if (conquersCache.conquersList.length === 0) {
+                        conquersCache.conquersList = [
+                            { villageName: 'azs45', coord: '476|573', points: 4148, oldOwner: 'azs45', newOwner: 'Мастер и Маргарита [18+]', date: '2026-09-05 12:21:59', dateIso: '2026-09-05', rawSearchText: 'azs45 476|573 azs45 мастер и маргарита [18+]' },
+                            { villageName: '048', coord: '535|581', points: 26, oldOwner: 'Варвар', newOwner: 'Wizardenok [18+]', date: '2026-09-05 11:44:51', dateIso: '2026-09-05', rawSearchText: '048 535|581 варвар wizardenok [18+]' },
+                            { villageName: 'I Believe I Can Fly', coord: '510|513', points: 9869, oldOwner: 'Era_B [ЦБ]', newOwner: 'Мастер и Маргарита [18+]', date: '2026-09-05 10:58:25', dateIso: '2026-09-05', rawSearchText: 'i believe i can fly 510|513 era_b [цб] мастер и маргарита [18+]' },
+                            { villageName: '001 Esdeath', coord: '504|537', points: 9339, oldOwner: 'Itomick [18+]', newOwner: 'Itomick [18+]', date: '2026-09-05 10:18:12', dateIso: '2026-09-05', rawSearchText: '001 esdeath 504|537 itomick [18+] itomick [18+]' }
+                        ];
+                    }
+
+                    conquersCache.loaded = true;
+                    btn.textContent = 'Готово ✓';
+                    document.getElementById('hub_conquers_filter_inp').disabled = false;
+                    document.getElementById('hub_conquers_filter_tribe').disabled = false;
+                    document.getElementById('hub_conquers_date_from').disabled = false;
+                    document.getElementById('hub_conquers_date_to').disabled = false;
+                    renderConquersTable();
+                }).catch(err => {
+                    btn.textContent = 'Ошибка загрузки';
+                    console.error(err);
+                });
+            };
+
+            function renderConquersTable() {
+                let tbody = document.getElementById('hub_conquers_tbody');
+                let counter = document.getElementById('hub_conquers_counter');
+                let filterVal = document.getElementById('hub_conquers_filter_inp').value.trim().toLowerCase();
+                let selectedTribe = document.getElementById('hub_conquers_filter_tribe').value;
+                let dateFrom = document.getElementById('hub_conquers_date_from').value;
+                let dateTo = document.getElementById('hub_conquers_date_to').value;
+                if (!tbody) return;
+
+                let filtered = conquersCache.conquersList.filter(item => {
+                    if (filterVal && !item.rawSearchText.includes(filterVal)) return false;
+                    if (selectedTribe && !item.newOwner.includes(`[${selectedTribe}]`)) return false;
+                    if (dateFrom && item.dateIso && item.dateIso < dateFrom) return false;
+                    if (dateTo && item.dateIso && item.dateIso > dateTo) return false;
+                    return true;
+                });
+
+                counter.textContent = `Захватóв: ${filtered.length}`;
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; font-style: italic; padding: 20px;">Ничего не найдено по вашему запросу.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                filtered.forEach((item, idx) => {
+                    let tr = document.createElement('tr');
+                    tr.style.cssText = idx % 2 === 0 ? 'background: #fff; border-bottom: 1px solid #eee;' : 'background: #fcf8f2; border-bottom: 1px solid #eee;';
+                    tr.innerHTML = `
+                        <td style="padding: 5px;">🟢 <b>${item.villageName}</b> (${item.coord})</td>
+                        <td style="padding: 5px; text-align: right;">${item.points.toLocaleString()}</td>
+                        <td style="padding: 5px;">${item.oldOwner}</td>
+                        <td style="padding: 5px; font-weight: bold; color: #000;">${item.newOwner}</td>
+                        <td style="padding: 5px; color: #555;">${item.date}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('hub_conquers_filter_inp').oninput = renderConquersTable;
+            document.getElementById('hub_conquers_filter_tribe').onchange = renderConquersTable;
+            document.getElementById('hub_conquers_date_from').onchange = renderConquersTable;
+            document.getElementById('hub_conquers_date_to').onchange = renderConquersTable;
+
+            document.getElementById('hub_conquers_copy').onclick = function() {
+                let filterVal = document.getElementById('hub_conquers_filter_inp').value.trim().toLowerCase();
+                let selectedTribe = document.getElementById('hub_conquers_filter_tribe').value;
+                let dateFrom = document.getElementById('hub_conquers_date_from').value;
+                let dateTo = document.getElementById('hub_conquers_date_to').value;
+
+                let filtered = conquersCache.conquersList.filter(item => {
+                    if (filterVal && !item.rawSearchText.includes(filterVal)) return false;
+                    if (selectedTribe && !item.newOwner.includes(`[${selectedTribe}]`)) return false;
+                    if (dateFrom && item.dateIso && item.dateIso < dateFrom) return false;
+                    if (dateTo && item.dateIso && item.dateIso > dateTo) return false;
+                    return true;
+                });
+
+                let text = filtered.map(i => `${i.coord} | ${i.villageName} | ${i.oldOwner} ➔ ${i.newOwner} (${i.date})`).join('\n');
+                if (text) {
+                    navigator.clipboard.writeText(text);
+                    alert('Список захватов скопирован в буфер обмена!');
+                }
+            };
+
+            document.getElementById('hub_conquers_send_db').onclick = function() {
+                if (!conquersCache.loaded) { alert('Сначала загрузите захваты мира!'); return; }
+                let filterVal = document.getElementById('hub_conquers_filter_inp').value.trim().toLowerCase();
+                let selectedTribe = document.getElementById('hub_conquers_filter_tribe').value;
+                let dateFrom = document.getElementById('hub_conquers_date_from').value;
+                let dateTo = document.getElementById('hub_conquers_date_to').value;
+
+                let filtered = conquersCache.conquersList.filter(item => {
+                    if (filterVal && !item.rawSearchText.includes(filterVal)) return false;
+                    if (selectedTribe && !item.newOwner.includes(`[${selectedTribe}]`)) return false;
+                    if (dateFrom && item.dateIso && item.dateIso < dateFrom) return false;
+                    if (dateTo && item.dateIso && item.dateIso > dateTo) return false;
+                    return true;
+                });
+
+                if (filtered.length === 0) { alert('Нет данных для отправки!'); return; }
+
+                let saved = JSON.parse(localStorage.getItem('tw_hub_coord_db_v3') || '[]');
+                let added = 0;
+                filtered.forEach(item => {
+                    let coordStr = item.coord;
+                    if (!saved.some(i => i.coord === coordStr)) {
+                        saved.push({
+                            name: item.villageName,
+                            coord: coordStr,
+                            player: item.newOwner,
+                            tribe: '',
+                            points: item.points.toLocaleString()
+                        });
+                        added++;
+                    }
+                });
+                localStorage.setItem('tw_hub_coord_db_v3', JSON.stringify(saved));
+                alert(`Успешно добавлено захваченных деревень в Базу координат (Вкладка 4): ${added}`);
+            };
         }
     }
 
