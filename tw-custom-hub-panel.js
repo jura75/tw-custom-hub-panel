@@ -28,8 +28,8 @@
     `;
 
     panel.innerHTML = `
-        <!-- Шапка панели -->
-        <div style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none;">
+        <!-- Шапка панели (перетаскиваемая область) -->
+        <div id="tw-hub-header" style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none; cursor: move;">
             <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Внутренняя рабочая среда (С Таблицей)</b>
             <span id="tw-hub-close" style="cursor: pointer; color: #a63a3a; font-weight: bold; font-size: 16px; padding: 0 4px;">✕</span>
         </div>
@@ -53,13 +53,58 @@
 
         <!-- Нижняя строка состояния -->
         <div style="background: #1a1006; padding: 5px 12px; font-size: 10px; color: #a98a5c; border-top: 1px solid #7d510f; display: flex; justify-content: space-between;">
-            <span>Статус: Панель активна (Вкладка 8 добавлена)</span>
+            <span>Статус: Панель активна (Перетаскивание добавлено)</span>
             <span>Потяните за правый нижний угол, чтобы изменить размер 📐</span>
         </div>
     `;
 
     document.body.appendChild(panel);
     document.getElementById('tw-hub-close').onclick = () => panel.remove();
+
+    // Логика перетаскивания панели мышкой
+    let header = document.getElementById('tw-hub-header');
+    let isDraggingPanel = false;
+    let startX = 0, startY = 0;
+
+    header.onmousedown = function(e) {
+        if (e.target.id === 'tw-hub-close') return; // Не тянуть при клике на крестик
+        isDraggingPanel = true;
+        startX = e.clientX - panel.offsetLeft;
+        startY = e.clientY - panel.offsetTop;
+
+        // Если панель была отцентрирована через transform, сбрасываем его на точные пиксели
+        if (panel.style.transform.includes('translateX')) {
+            let rect = panel.getBoundingClientRect();
+            panel.style.transform = 'none';
+            panel.style.left = rect.left + 'px';
+            panel.style.top = rect.top + 'px';
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+        }
+
+        document.addEventListener('mousemove', onPanelMouseMove);
+        document.addEventListener('mouseup', onPanelMouseUp);
+        e.preventDefault();
+    };
+
+    function onPanelMouseMove(e) {
+        if (!isDraggingPanel) return;
+        let newX = e.clientX - startX;
+        let newY = e.clientY - startY;
+
+        // Ограничение по границам экрана
+        newX = Math.max(0, Math.min(window.innerWidth - 100, newX));
+        newY = Math.max(0, Math.min(window.innerHeight - 50, newY));
+
+        panel.style.left = newX + 'px';
+        panel.style.top = newY + 'px';
+    }
+
+    function onPanelMouseUp() {
+        isDraggingPanel = false;
+        document.removeEventListener('mousemove', onPanelMouseMove);
+        document.removeEventListener('mouseup', onPanelMouseUp);
+    }
 
     window._twMapCache = window._twMapCache || {
         mapDataLoaded: false,
@@ -565,13 +610,13 @@
                 alert(`Добавлено в Базу координат (Вкладка 4): ${added}`);
             };
 
-            let isDragging = false, startX = 0, startY = 0;
+            let isDragging = false, startX2 = 0, startY2 = 0;
             canvas.onmousedown = function(e) {
                 if (e.button !== 0 || !cache.mapDataLoaded) return;
                 isDragging = true;
                 let rect = canvas.getBoundingClientRect();
-                startX = e.clientX - rect.left; startY = e.clientY - rect.top;
-                selectionBox.style.left = startX + 'px'; selectionBox.style.top = startY + 'px';
+                startX2 = e.clientX - rect.left; startY2 = e.clientY - rect.top;
+                selectionBox.style.left = startX2 + 'px'; selectionBox.style.top = startY2 + 'px';
                 selectionBox.style.width = '0px'; selectionBox.style.height = '0px';
                 selectionBox.style.display = 'block';
             };
@@ -588,20 +633,20 @@
                     tooltip.innerHTML = `<b>${found.name}</b> (${found.x}|${found.y})<br>Игрок: ${found.playerName} [${found.tribeTag}]`;
                 } else { tooltip.style.display = 'none'; }
                 if (!isDragging) return;
-                selectionBox.style.left = Math.min(startX, cX) + 'px';
-                selectionBox.style.top = Math.min(startY, cY) + 'px';
-                selectionBox.style.width = Math.abs(cX - startX) + 'px';
-                selectionBox.style.height = Math.abs(cY - startY) + 'px';
+                selectionBox.style.left = Math.min(startX2, cX) + 'px';
+                selectionBox.style.top = Math.min(startY2, cY) + 'px';
+                selectionBox.style.width = Math.abs(cX - startX2) + 'px';
+                selectionBox.style.height = Math.abs(cY - startX2) + 'px';
             };
             window.onmouseup = function(e) {
                 if (!isDragging) return;
                 isDragging = false;
                 selectionBox.style.display = 'none';
                 let rect = canvas.getBoundingClientRect();
-                let x1 = Math.floor(Math.min(startX, (e.clientX - rect.left)) / cache.tileSize);
-                let x2 = Math.floor(Math.max(startX, (e.clientX - rect.left)) / cache.tileSize);
-                let y1 = Math.floor(Math.min(startY, (e.clientY - rect.top)) / cache.tileSize);
-                let y2 = Math.floor(Math.max(startY, (e.clientY - rect.top)) / cache.tileSize);
+                let x1 = Math.floor(Math.min(startX2, (e.clientX - rect.left)) / cache.tileSize);
+                let x2 = Math.floor(Math.max(startX2, (e.clientX - rect.left)) / cache.tileSize);
+                let y1 = Math.floor(Math.min(startY2, (e.clientY - rect.top)) / cache.tileSize);
+                let y2 = Math.floor(Math.max(startY2, (e.clientY - rect.top)) / cache.tileSize);
                 if (Math.abs(x2 - x1) < 1 && Math.abs(y2 - y1) < 1) return;
                 cache.currentFilteredVillages = cache.villagesData.filter(v => v.x >= x1 && v.x <= x2 && v.y >= y1 && v.y <= y2);
                 if (cache.currentFilteredVillages.length === 0) return;
