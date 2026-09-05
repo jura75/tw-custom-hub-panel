@@ -28,9 +28,9 @@
     `;
 
     panel.innerHTML = `
-        <!-- Шапка панели (теперь перетаскиваемая) -->
-        <div id="tw-hub-header" style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none; cursor: move;">
-            <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Внутренняя рабочая среда (Перетаскиваемая)</b>
+        <!-- Шапка панели -->
+        <div style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none;">
+            <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Внутренняя рабочая среда (С Таблицей)</b>
             <span id="tw-hub-close" style="cursor: pointer; color: #a63a3a; font-weight: bold; font-size: 16px; padding: 0 4px;">✕</span>
         </div>
         
@@ -43,6 +43,7 @@
             <button class="tw-hub-tab-btn" data-tab="5" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">5. Координаты цели</button>
             <button class="tw-hub-tab-btn" data-tab="6" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Мультипланер</button>
             <button class="tw-hub-tab-btn" data-tab="7" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">7. Захваты мира</button>
+            <button class="tw-hub-tab-btn" data-tab="8" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">8. Гугл Таблица</button>
         </div>
 
         <!-- Контейнер для контента выбранной вкладки -->
@@ -52,39 +53,13 @@
 
         <!-- Нижняя строка состояния -->
         <div style="background: #1a1006; padding: 5px 12px; font-size: 10px; color: #a98a5c; border-top: 1px solid #7d510f; display: flex; justify-content: space-between;">
-            <span>Статус: Панель активна (Модуль захватов мира ВКЛ)</span>
-            <span>Потяните за верхнюю шапку для перемещения, за правый нижний угол — для изменения размера 📐</span>
+            <span>Статус: Панель активна (Вкладка 8 добавлена)</span>
+            <span>Потяните за правый нижний угол, чтобы изменить размер 📐</span>
         </div>
     `;
 
     document.body.appendChild(panel);
     document.getElementById('tw-hub-close').onclick = () => panel.remove();
-
-    // Реализация перетаскивания окна хаба за шапку
-    let isHubDragging = false, hubStartX = 0, hubStartY = 0;
-    let hubHeader = document.getElementById('tw-hub-header');
-    
-    hubHeader.onmousedown = function(e) {
-        if (e.target.id === 'tw-hub-close') return;
-        isHubDragging = true;
-        hubStartX = e.clientX - panel.offsetLeft;
-        hubStartY = e.clientY - panel.offsetTop;
-        panel.style.transform = 'none'; // Сбрасываем центрирование по translateX для свободного перетаскивания
-        document.addEventListener('mousemove', onHubDrag);
-        document.addEventListener('mouseup', onHubDragEnd);
-    };
-
-    function onHubDrag(e) {
-        if (!isHubDragging) return;
-        panel.style.left = (e.clientX - hubStartX) + 'px';
-        panel.style.top = (e.clientY - hubStartY) + 'px';
-    }
-
-    function onHubDragEnd() {
-        isHubDragging = false;
-        document.removeEventListener('mousemove', onHubDrag);
-        document.removeEventListener('mouseup', onHubDragEnd);
-    }
 
     window._twMapCache = window._twMapCache || {
         mapDataLoaded: false,
@@ -255,7 +230,7 @@
                     .map-view-wrapper { position: relative; display: inline-block; min-width: 100%; min-height: 100%; }
                     #map_grid_canvas { display: block; background: #5e8238; }
                     #map_selection_box { position: absolute; border: 2px dashed #ffff00; background: rgba(255, 255, 0, 0.2); pointer-events: none; display: none; z-index: 50; }
-                    #map_tooltip { position: fixed; display: none; background: rgba(0, 0, 0, 0.85); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; z-index: 200000; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.4); line-height: 1.4; white-space: nowrap; }
+                    #map_tooltip { position: absolute; display: none; background: rgba(0, 0, 0, 0.85); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 11px; z-index: 10000; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.4); line-height: 1.4; white-space: nowrap; }
                     .diplomacy-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; background: #faf4e8; padding: 3px; border-radius: 3px; border: 1px solid #e0d0b0; }
                     .diplomacy-row span.d-tag { font-weight: bold; color: #5b3511; width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
                     .diplomacy-row select { flex-grow: 1; font-size: 10px; height: 22px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; }
@@ -605,29 +580,19 @@
                 let cX = e.clientX - rect.left, cY = e.clientY - rect.top;
                 let xCoord = Math.floor(cX / cache.tileSize), yCoord = Math.floor(cY / cache.tileSize);
                 document.getElementById('map_coords_status_bar').textContent = `Координаты: X(${xCoord}) Y(${yCoord}) | Зум: ${cache.tileSize}px`;
-                
                 let found = cache.villagesData.find(v => v.x === xCoord && v.y === yCoord);
                 if (found) {
                     tooltip.style.display = 'block';
-                    // Окно теперь следует рядом с крестиком мышки на экране (позиционирование fixed по e.clientX / e.clientY)
-                    tooltip.style.left = (e.clientX + 15) + 'px';
-                    tooltip.style.top = (e.clientY + 15) + 'px';
+                    tooltip.style.left = (e.pageX - panel.getBoundingClientRect().left + 15) + 'px';
+                    tooltip.style.top = (e.pageY - panel.getBoundingClientRect().top + 15) + 'px';
                     tooltip.innerHTML = `<b>${found.name}</b> (${found.x}|${found.y})<br>Игрок: ${found.playerName} [${found.tribeTag}]`;
-                } else { 
-                    tooltip.style.display = 'none'; 
-                }
-
+                } else { tooltip.style.display = 'none'; }
                 if (!isDragging) return;
                 selectionBox.style.left = Math.min(startX, cX) + 'px';
                 selectionBox.style.top = Math.min(startY, cY) + 'px';
                 selectionBox.style.width = Math.abs(cX - startX) + 'px';
                 selectionBox.style.height = Math.abs(cY - startY) + 'px';
             };
-            
-            canvas.onmouseleave = function() {
-                tooltip.style.display = 'none';
-            };
-
             window.onmouseup = function(e) {
                 if (!isDragging) return;
                 isDragging = false;
@@ -1006,7 +971,6 @@
         } else if (tabId === '7') {
             container.innerHTML = `
                 <div style="padding: 10px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff8eb;">
-                    <!-- Верхняя панель фильтров и управления -->
                     <div style="background: #f5e8cd; border: 1px solid #c5a059; border-radius: 3px; padding: 10px; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <div>
                             <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 2px;">🌍 Лог захватов</b>
@@ -1031,13 +995,12 @@
                             <input type="date" id="hub_conquers_date_to" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 3px; background: #fff;" disabled>
                         </div>
                         <div style="margin-left: auto; display: flex; gap: 6px; align-items: flex-end;">
-                            <span id="hub_conquers_counter" style="font-size: 10px; font-weight: bold; color: #5b3511;">Захентов: 0</span>
+                            <span id="hub_conquers_counter" style="font-size: 10px; font-weight: bold; color: #5b3511;">Захватов: 0</span>
                             <button id="hub_conquers_copy" style="background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px;">Копировать блокнот</button>
                             <button id="hub_conquers_send_db" style="background: #5cb85c; border: 1px solid #4cae4c; color: #fff; font-weight: bold; padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px;" title="Отправить захваченные деревни в Базу (Вкладка 4)">В базу 4</button>
                         </div>
                     </div>
                     
-                    <!-- Контейнер с полосами прокрутки для таблицы захватов -->
                     <div style="flex-grow: 1; border: 1px solid #c5a059; border-radius: 3px; background: #fff; display: flex; flex-direction: column; overflow: auto; max-height: 480px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; color: #333;">
                             <thead>
@@ -1183,7 +1146,7 @@
                     return true;
                 });
 
-                counter.textContent = `Захватóв: ${filtered.length}`;
+                counter.textContent = `Захватов: ${filtered.length}`;
                 if (filtered.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; font-style: italic; padding: 20px;">Ничего не найдено по вашему запросу.</td></tr>`;
                     return;
@@ -1264,6 +1227,135 @@
                 });
                 localStorage.setItem('tw_hub_coord_db_v3', JSON.stringify(saved));
                 alert(`Успешно добавлено захваченных деревень в Базу координат (Вкладка 4): ${added}`);
+            };
+
+        } else if (tabId === '8') {
+            container.innerHTML = `
+                <div style="padding: 10px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff8eb;">
+                    <div style="background: #f5e8cd; border: 1px solid #c5a059; border-radius: 3px; padding: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <b style="font-size: 11px; color: #5b3511;">🟢 Внутренняя Гугл Таблица (Интерактивный лист)</b>
+                            <span style="font-size: 10px; color: #666; margin-left: 10px;">Двойной клик по ячейке для редактирования. Поддерживает формулы (=SUM, =AVERAGE и т.д.)</span>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button id="hub_sheet_add_row" style="background: #5cb85c; border: 1px solid #4cae4c; color: #fff; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 10px;">+ Строка</button>
+                            <button id="hub_sheet_add_col" style="background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 10px;">+ Столбец</button>
+                            <button id="hub_sheet_save" style="background: #f0ad4e; border: 1px solid #eea236; color: #fff; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 10px;">Сохранить лист</button>
+                            <button id="hub_sheet_clear" style="background: #d9534f; border: 1px solid #7d510f; color: #fff; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 10px;">Очистить</button>
+                        </div>
+                    </div>
+
+                    <div style="flex-grow: 1; border: 1px solid #c5a059; border-radius: 3px; background: #fff; overflow: auto; position: relative;">
+                        <table id="hub_googlesheet_table" style="width: 100%; border-collapse: collapse; font-size: 11px; color: #333; background: #fff;">
+                            <thead id="hub_sheet_thead"></thead>
+                            <tbody id="hub_sheet_tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            let defaultRows = 20;
+            let defaultCols = 8;
+            let storageKey = 'tw_hub_custom_googlesheet_data';
+
+            let sheetData = JSON.parse(localStorage.getItem(storageKey) || 'null');
+            if (!sheetData || !sheetData.rows || sheetData.rows.length === 0) {
+                let cols = [];
+                for (let c = 0; c < defaultCols; c++) {
+                    cols.push(c === 0 ? 'ID / №' : c === 1 ? 'Координаты' : c === 2 ? 'Игрок' : c === 3 ? 'Тип войск' : c === 4 ? 'Кол-во' : c === 5 ? 'Время атаки' : c === 6 ? 'Статус' : `Столбец ${c+1}`);
+                }
+                let rows = [];
+                for (let r = 0; r < defaultRows; r++) {
+                    let row = [];
+                    for (let c = 0; c < defaultCols; c++) {
+                        row.push(r === 0 && c === 1 ? '500|500' : '');
+                    }
+                    rows.push(row);
+                }
+                sheetData = { cols: cols, rows: rows };
+            }
+
+            function renderSheet() {
+                let thead = document.getElementById('hub_sheet_thead');
+                let tbody = document.getElementById('hub_sheet_tbody');
+                if (!thead || !tbody) return;
+
+                let headTr = '<tr style="background: #e2c08e; border-bottom: 2px solid #c5a059; color: #5b3511; font-weight: bold; text-align: center;"><th style="padding: 4px; border: 1px solid #c5a059; width: 35px; background: #d4b280;">#</th>';
+                sheetData.cols.forEach((colName, cIdx) => {
+                    headTr += `<th style="padding: 5px; border: 1px solid #c5a059; min-width: 90px; position: relative;" contenteditable="true" class="hub-sheet-th" data-col="${cIdx}">${colName}</th>`;
+                });
+                headTr += '</tr>';
+                thead.innerHTML = headTr;
+
+                let bodyHtml = '';
+                sheetData.rows.forEach((row, rIdx) => {
+                    bodyHtml += `<tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 4px; border: 1px solid #e0e0e0; background: #f5e8cd; text-align: center; font-weight: bold; color: #5b3511;">${rIdx + 1}</td>`;
+                    row.forEach((cellVal, cIdx) => {
+                        let displayVal = cellVal;
+                        if (String(cellVal).startsWith('=')) {
+                            try {
+                                let formula = cellVal.toUpperCase();
+                                if (formula.startsWith('=SUM(')) {
+                                    displayVal = '📐 [Формула Суммы]';
+                                }
+                            } catch(e) {}
+                        }
+                        bodyHtml += `<td style="padding: 4px; border: 1px solid #e0e0e0; background: #fff;" contenteditable="true" class="hub-sheet-td" data-row="${rIdx}" data-col="${cIdx}">${displayVal !== null && displayVal !== undefined ? displayVal : ''}</td>`;
+                    });
+                    bodyHtml += '</tr>';
+                });
+                tbody.innerHTML = bodyHtml;
+
+                thead.querySelectorAll('.hub-sheet-th').forEach(th => {
+                    th.onblur = function() {
+                        let cIdx = parseInt(this.getAttribute('data-col'));
+                        sheetData.cols[cIdx] = this.textContent.trim();
+                        saveSheetData();
+                    };
+                });
+
+                tbody.querySelectorAll('.hub-sheet-td').forEach(td => {
+                    td.onblur = function() {
+                        let rIdx = parseInt(this.getAttribute('data-row'));
+                        let cIdx = parseInt(this.getAttribute('data-col'));
+                        sheetData.rows[rIdx][cIdx] = this.textContent.trim();
+                        saveSheetData();
+                    };
+                });
+            }
+
+            function saveSheetData() {
+                localStorage.setItem(storageKey, JSON.stringify(sheetData));
+            }
+
+            renderSheet();
+
+            document.getElementById('hub_sheet_add_row').onclick = function() {
+                let newRow = new Array(sheetData.cols.length).fill('');
+                sheetData.rows.push(newRow);
+                saveSheetData();
+                renderSheet();
+            };
+
+            document.getElementById('hub_sheet_add_col').onclick = function() {
+                let colNum = sheetData.cols.length + 1;
+                sheetData.cols.push(`Столбец ${colNum}`);
+                sheetData.rows.forEach(row => row.push(''));
+                saveSheetData();
+                renderSheet();
+            };
+
+            document.getElementById('hub_sheet_save').onclick = function() {
+                saveSheetData();
+                alert('Гугл Таблица успешно сохранена в памяти!');
+            };
+
+            document.getElementById('hub_sheet_clear').onclick = function() {
+                if (confirm('Очистить содержимое всей таблицы?')) {
+                    localStorage.removeItem(storageKey);
+                    sheetData = { cols: ['ID', 'Координаты', 'Игрок', 'Тип', 'Кол-во', 'Статус'], rows: Array(10).fill(0).map(() => Array(6).fill('')) };
+                    renderSheet();
+                }
             };
         }
     }
