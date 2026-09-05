@@ -66,7 +66,7 @@
         tribesData: {},
         tileSize: 4,
         currentFilteredVillages: [],
-        tribeColors: {},
+        tribeColors: JSON.parse(localStorage.getItem('tw_hub_map_tribe_colors') || '{}'),
         scrollLeft: 0,
         scrollTop: 0,
         selectedText: '',
@@ -124,7 +124,7 @@
             const categories = [
                 { key: 'офф', name: 'Офф', color: '#b22222' },
                 { key: 'двор', name: 'Двор', color: '#5b3511' },
-                { key: 'раскатка', name: 'Раскатка', color: '#5b3511' },
+                { key: 'раскатки', name: 'Раскатка', color: '#5b3511' },
                 { key: 'спам', name: 'Спам', color: '#5b3511' },
                 { key: 'дефф', name: 'Дефф', color: '#00008b' }
             ];
@@ -136,7 +136,14 @@
 
                 categories.forEach(cat => {
                     let storageKey = `ra_wb_category_${cat.key}`;
-                    let items = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                    let rawData = localStorage.getItem(storageKey) || '';
+                    
+                    let items = [];
+                    if (rawData.trim().startsWith('[')) {
+                        try { items = JSON.parse(rawData); } catch(e) { items = []; }
+                    } else if (rawData.trim() !== '') {
+                        items = rawData.split('\n').filter(Boolean);
+                    }
 
                     let itemsHtml = '';
                     if (items.length === 0) {
@@ -173,7 +180,11 @@
             document.getElementById('hub_btn_del_selected').onclick = function() {
                 categories.forEach(cat => {
                     let storageKey = `ra_wb_category_${cat.key}`;
-                    let items = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                    let rawData = localStorage.getItem(storageKey) || '';
+                    if (!rawData) return;
+
+                    let isJson = rawData.trim().startsWith('[');
+                    let items = isJson ? JSON.parse(rawData) : rawData.split('\n').filter(Boolean);
                     let indicesToRemove = [];
 
                     document.querySelectorAll(`.hub-cat-item-chk[data-cat="${cat.key}"]:checked`).forEach(chk => {
@@ -182,7 +193,11 @@
 
                     if (indicesToRemove.length > 0) {
                         let filtered = items.filter((_, idx) => !indicesToRemove.includes(idx));
-                        localStorage.setItem(storageKey, JSON.stringify(filtered));
+                        if (isJson) {
+                            localStorage.setItem(storageKey, JSON.stringify(filtered));
+                        } else {
+                            localStorage.setItem(storageKey, filtered.join('\n'));
+                        }
                     }
                 });
                 renderCategories();
@@ -240,7 +255,10 @@
                                 <div id="map_custom_players_list" style="max-height: 80px; overflow-y: auto; border: 1px solid #c5a059; background: #fff; padding: 3px; border-radius: 2px; margin-bottom: 5px;"></div>
                                 <b style="font-size: 10px; color: #5b3511; display: block; margin-bottom: 2px;">Список племён:</b>
                                 <div id="diplomacy_list_container"><div style="font-style: italic; color: #888; font-size: 10px; text-align: center; padding: 10px;">Сначала нажмите «Загрузить с сервера»</div></div>
-                                <button id="map_btn_apply_dip" style="width: 100%; margin-top: 5px; background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 4px; cursor: pointer; border-radius: 3px; font-size: 10px;">Применить раскраску</button>
+                                <div style="display: flex; gap: 4px; margin-top: 5px;">
+                                    <button id="map_btn_apply_dip" style="flex: 2; background: #c5a059; border: 1px solid #7d510f; color: #2b1d0c; font-weight: bold; padding: 4px; cursor: pointer; border-radius: 3px; font-size: 10px;">Применить раскраску</button>
+                                    <button id="map_btn_reset_dip" style="flex: 1; background: #d9534f; color: #fff; border: 1px solid #7d510f; font-weight: bold; padding: 4px; cursor: pointer; border-radius: 3px; font-size: 10px;" title="Сбросить все сохраненные цвета племён">Сбросить цвета</button>
+                                </div>
                             </div>
                             <div style="background: #f5e8cd; border: 1px solid #c5a059; border-radius: 3px; padding: 8px;">
                                 <b style="font-size: 11px; color: #5b3511; display: block; margin-bottom: 5px;">📍 Диапазон выделения (X / Y)</b>
@@ -417,6 +435,7 @@
                         if (this.value === 'default') { colorInp.value = '#888888'; delete cache.tribeColors[tag]; }
                         else if (this.value === 'ally') { colorInp.value = '#0000ff'; cache.tribeColors[tag] = '#0000ff'; }
                         else if (this.value === 'enemy') { colorInp.value = '#ff0000'; cache.tribeColors[tag] = '#ff0000'; }
+                        localStorage.setItem('tw_hub_map_tribe_colors', JSON.stringify(cache.tribeColors));
                         redrawMap();
                     };
                 });
@@ -426,6 +445,7 @@
                         cache.tribeColors[tag] = this.value;
                         let sel = container.querySelector(`.tribe-status-sel[data-tag="${tag}"]`);
                         if (sel) sel.value = 'custom';
+                        localStorage.setItem('tw_hub_map_tribe_colors', JSON.stringify(cache.tribeColors));
                         redrawMap();
                     };
                 });
@@ -460,6 +480,17 @@
                 });
             };
 
+            document.getElementById('map_btn_apply_dip').onclick = redrawMap;
+
+            document.getElementById('map_btn_reset_dip').onclick = function() {
+                if (confirm('Сбросить все сохраненные цвета племён?')) {
+                    cache.tribeColors = {};
+                    localStorage.removeItem('tw_hub_map_tribe_colors');
+                    if (cache.mapDataLoaded) renderTribesList();
+                    redrawMap();
+                }
+            };
+
             scrollArea.onwheel = function(e) {
                 e.preventDefault();
                 let oldSize = cache.tileSize;
@@ -478,7 +509,6 @@
             };
 
             document.getElementById('map_btn_reset_zoom').onclick = () => { cache.tileSize = 4; document.getElementById('map_zoom_lbl').textContent = '4px'; initCanvasSize(); };
-            document.getElementById('map_btn_apply_dip').onclick = redrawMap;
 
             document.getElementById('map_btn_select_range').onclick = function() {
                 if (!cache.mapDataLoaded) { alert('Сначала загрузите карту!'); return; }
@@ -574,8 +604,7 @@
         } else if (tabId === '4') {
             container.innerHTML = `
                 <div style="padding: 10px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; background: #fff8eb;">
-                    <!-- Панель фильтров аналогичная фото -->
-                    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; background: #f5e8cd; padding: 6px; border: 1px solid #c5a059; border-radius: 3px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; background: #f5e8cd; padding: 6px; border: 1px solid #c5a059; border-radius: 3px; flex-wrap: wrap; position: relative;">
                         <select id="hub_filter_player" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; max-width: 130px;">
                             <option value="">Все игроки</option>
                         </select>
@@ -590,11 +619,19 @@
                         </select>
                         <input type="text" id="hub_filter_min_pts" placeholder="Мин. очки" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px;">
                         <input type="text" id="hub_filter_max_pts" placeholder="Макс. очки" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px;">
-                        <button id="hub_db_btn_save_cfg" style="background: #e2c08e; border: 1px solid #7d510f; font-weight: bold; padding: 3px 6px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #5b3511;">Сохранить ▼</button>
+                        
+                        <div style="position: relative; display: inline-block;">
+                            <button id="hub_db_btn_save_cfg" style="background: #e2c08e; border: 1px solid #7d510f; font-weight: bold; padding: 3px 6px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #5b3511;">Сохранить ▼</button>
+                            <div id="hub_save_dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #7d510f; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1000; border-radius: 3px; width: 130px;">
+                                <div class="hub-save-cat-opt" data-cat="офф" style="padding: 5px 8px; font-size: 10px; cursor: pointer; border-bottom: 1px solid #eee; color: #333;">👉 В Офф</div>
+                                <div class="hub-save-cat-opt" data-cat="двор" style="padding: 5px 8px; font-size: 10px; cursor: pointer; border-bottom: 1px solid #eee; color: #333;">👉 В Двор</div>
+                                <div class="hub-save-cat-opt" data-cat="раскатки" style="padding: 5px 8px; font-size: 10px; cursor: pointer; border-bottom: 1px solid #eee; color: #333;">👉 В Раскатки</div>
+                                <div class="hub-save-cat-opt" data-cat="спам" style="padding: 5px 8px; font-size: 10px; cursor: pointer; color: #333;">👉 В Спам</div>
+                            </div>
+                        </div>
                         
                         <div style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
                             <span id="hub_db_counter" style="font-weight: bold; font-size: 10px; color: #5b3511;">Показано: 0 из 0</span>
-                            <button id="hub_db_btn_demo" style="background: #f0ad4e; border: 1px solid #eea236; font-weight: bold; padding: 3px 6px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #fff;">Демо</button>
                             <button id="hub_db_btn_copy" style="background: #c5a059; border: 1px solid #7d510f; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #2b1d0c;">Копировать</button>
                             <button id="hub_db_btn_clear" style="background: #d9534f; border: 1px solid #7d510f; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #fff;">Очистить</button>
                         </div>
@@ -619,16 +656,45 @@
                 </div>
             `;
 
+            function getQuadrant(coordStr) {
+                let parts = coordStr.split('|');
+                if (parts.length !== 2) return '';
+                let x = parseInt(parts[0]), y = parseInt(parts[1]);
+                if (isNaN(x) || isNaN(y)) return '';
+                let qX = Math.floor(x / 100);
+                let qY = Math.floor(y / 100);
+                return `K${qY}${qX}`;
+            }
+
+            function getVillageType(name) {
+                let lower = (name || '').toLowerCase();
+                if (lower.includes('варвар') || lower.includes('барба')) return 'Варварка';
+                if (lower.includes('бонус')) return 'Бонусная';
+                if (lower.includes('церк')) return 'Церковь';
+                return 'Обычная';
+            }
+
             function populateFilters(db) {
                 let pSelect = document.getElementById('hub_filter_player');
                 let tSelect = document.getElementById('hub_filter_tribe');
-                if (!pSelect || !tSelect) return;
+                let qSelect = document.getElementById('hub_filter_quad');
+                let typeSelect = document.getElementById('hub_filter_type');
+                if (!pSelect || !tSelect || !qSelect || !typeSelect) return;
+
+                let currentP = pSelect.value;
+                let currentT = tSelect.value;
+                let currentQ = qSelect.value;
+                let currentType = typeSelect.value;
 
                 let players = [...new Set(db.map(i => i.player).filter(Boolean))].sort();
                 let tribes = [...new Set(db.map(i => i.tribe).filter(Boolean))].sort();
+                let quads = [...new Set(db.map(i => getQuadrant(i.coord)).filter(Boolean))].sort();
+                let types = [...new Set(db.map(i => getVillageType(i.name)).filter(Boolean))].sort();
 
-                pSelect.innerHTML = '<option value="">Все игроки</option>' + players.map(p => `<option value="${p}">${p}</option>`).join('');
-                tSelect.innerHTML = '<option value="">Все племена</option>' + tribes.map(t => `<option value="${t}">${t}</option>`).join('');
+                pSelect.innerHTML = '<option value="">Все игроки</option>' + players.map(p => `<option value="${p}" ${p === currentP ? 'selected' : ''}>${p}</option>`).join('');
+                tSelect.innerHTML = '<option value="">Все племена</option>' + tribes.map(t => `<option value="${t}" ${t === currentT ? 'selected' : ''}>${t}</option>`).join('');
+                qSelect.innerHTML = '<option value="">Все квад.</option>' + quads.map(q => `<option value="${q}" ${q === currentQ ? 'selected' : ''}>${q}</option>`).join('');
+                typeSelect.innerHTML = '<option value="">Все типы</option>' + types.map(tp => `<option value="${tp}" ${tp === currentType ? 'selected' : ''}>${tp}</option>`).join('');
             }
 
             function renderDBTable() {
@@ -641,6 +707,8 @@
 
                 let selPlayer = document.getElementById('hub_filter_player').value;
                 let selTribe = document.getElementById('hub_filter_tribe').value;
+                let selQuad = document.getElementById('hub_filter_quad').value;
+                let selType = document.getElementById('hub_filter_type').value;
                 let minPts = parseInt(document.getElementById('hub_filter_min_pts').value) || 0;
                 let maxPts = parseInt(document.getElementById('hub_filter_max_pts').value) || 9999999;
 
@@ -648,6 +716,8 @@
                     let ptsVal = parseInt(String(item.points).replace(/,/g, '')) || 0;
                     if (selPlayer && item.player !== selPlayer) return false;
                     if (selTribe && item.tribe !== selTribe) return false;
+                    if (selQuad && getQuadrant(item.coord) !== selQuad) return false;
+                    if (selType && getVillageType(item.name) !== selType) return false;
                     if (ptsVal < minPts || ptsVal > maxPts) return false;
                     return true;
                 });
@@ -688,11 +758,63 @@
 
             renderDBTable();
 
-            ['hub_filter_player', 'hub_filter_tribe', 'hub_filter_min_pts', 'hub_filter_max_pts'].forEach(id => {
+            ['hub_filter_player', 'hub_filter_tribe', 'hub_filter_quad', 'hub_filter_type', 'hub_filter_min_pts', 'hub_filter_max_pts'].forEach(id => {
                 let el = document.getElementById(id);
                 if (el) el.oninput = renderDBTable;
                 if (el) el.onchange = renderDBTable;
             });
+
+            let chkAll = document.getElementById('hub_db_chk_all');
+            if (chkAll) {
+                chkAll.onchange = function() {
+                    document.querySelectorAll('.hub-db-item').forEach(chk => chk.checked = chkAll.checked);
+                };
+            }
+
+            let saveBtn = document.getElementById('hub_db_btn_save_cfg');
+            let saveDropdown = document.getElementById('hub_save_dropdown');
+            if (saveBtn && saveDropdown) {
+                saveBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    saveDropdown.style.display = saveDropdown.style.display === 'block' ? 'none' : 'block';
+                };
+                document.onclick = () => { saveDropdown.style.display = 'none'; };
+
+                saveDropdown.querySelectorAll('.hub-save-cat-opt').forEach(opt => {
+                    opt.onclick = function() {
+                        let catKey = this.getAttribute('data-cat');
+                        let checked = document.querySelectorAll('.hub-db-item:checked');
+                        if (checked.length === 0) {
+                            alert('Не отмечено ни одной строки в таблице!');
+                            return;
+                        }
+                        let db = JSON.parse(localStorage.getItem('tw_hub_coord_db_v3') || '[]');
+                        let storageKey = `ra_wb_category_${catKey}`;
+                        let existingCatData = localStorage.getItem(storageKey) || '';
+                        let catItems = [];
+                        if (existingCatData.trim().startsWith('[')) {
+                            try { catItems = JSON.parse(existingCatData); } catch(e) {}
+                        } else if (existingCatData.trim() !== '') {
+                            catItems = existingCatData.split('\n').filter(Boolean).map(c => ({ coords: c, player: '' }));
+                        }
+
+                        checked.forEach(chk => {
+                            let idx = parseInt(chk.getAttribute('data-index'));
+                            let item = db[idx];
+                            if (item) {
+                                let entryObj = { coords: item.coord, player: item.player || '' };
+                                if (!catItems.some(i => (typeof i === 'object' ? i.coords : i) === item.coord)) {
+                                    catItems.push(entryObj);
+                                }
+                            }
+                        });
+
+                        localStorage.setItem(storageKey, JSON.stringify(catItems));
+                        alert(`Успешно отправлено во вкладку 2 (категория: ${catKey.toUpperCase()}) и во вкладку 5!`);
+                        saveDropdown.style.display = 'none';
+                    };
+                });
+            }
 
             document.getElementById('hub_db_btn_clear').onclick = function() {
                 if (confirm('Очистить базу координат?')) {
@@ -722,23 +844,35 @@
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex-grow: 1;">
-                        ${['офф', 'двор', 'раскатка', 'спам'].map((cat, idx) => `
+                        ${[
+                            { key: 'офф', name: 'Офф' },
+                            { key: 'двор', name: 'Двор' },
+                            { key: 'раскатки', name: 'Раскатки' },
+                            { key: 'спам', name: 'Спам' }
+                        ].map((cat, idx) => `
                             <div style="background: #fff; border: 1px solid #c5a059; border-radius: 3px; display: flex; flex-direction: column; overflow: hidden;">
                                 <div style="background: #e2c08e; padding: 5px 8px; border-bottom: 1px solid #c5a059; display: flex; justify-content: space-between; align-items: center;">
-                                    <span style="font-weight: bold; font-size: 11px; color: #5b3511;">${idx + 1}) Цели: ${cat}</span>
-                                    <button class="hub-t-copy-btn" data-cat="${cat}" style="background: #c5a059; border: 1px solid #7d510f; font-weight: bold; padding: 1px 6px; cursor: pointer; border-radius: 2px; font-size: 9px; color: #2b1d0c;">Копировать</button>
+                                    <span style="font-weight: bold; font-size: 11px; color: #5b3511;">${idx + 1}) Цели: ${cat.name}</span>
+                                    <button class="hub-t-copy-btn" data-cat="${cat.key}" style="background: #c5a059; border: 1px solid #7d510f; font-weight: bold; padding: 1px 6px; cursor: pointer; border-radius: 2px; font-size: 9px; color: #2b1d0c;">Копировать</button>
                                 </div>
-                                <textarea id="hub_t_textarea_${cat}" style="flex-grow: 1; border: none; padding: 6px; font-size: 11px; resize: none; background: #fff; color: #333;" placeholder="Вставьте координаты..."></textarea>
+                                <textarea id="hub_t_textarea_${cat.key}" style="flex-grow: 1; border: none; padding: 6px; font-size: 11px; resize: none; background: #fff; color: #333;" placeholder="Вставьте координаты..."></textarea>
                             </div>
                         `).join('')}
                     </div>
                 </div>
             `;
 
-            ['офф', 'двор', 'раскатка', 'спам'].forEach(cat => {
+            ['офф', 'двор', 'раскатки', 'спам'].forEach(cat => {
                 let ta = document.getElementById(`hub_t_textarea_${cat}`);
                 if (ta) {
-                    ta.value = localStorage.getItem(`ra_wb_category_${cat}`) || '';
+                    let val = localStorage.getItem(`ra_wb_category_${cat}`) || '';
+                    if (val.trim().startsWith('[')) {
+                        try {
+                            let parsed = JSON.parse(val);
+                            val = parsed.map(i => typeof i === 'object' && i !== null ? i.coords : i).join('\n');
+                        } catch(e) {}
+                    }
+                    ta.value = val;
                     ta.oninput = () => {
                         localStorage.setItem(`ra_wb_category_${cat}`, ta.value);
                     };
@@ -746,7 +880,7 @@
             });
 
             document.getElementById('hub_targets_save').onclick = () => {
-                ['офф', 'двор', 'раскатка', 'спам'].forEach(cat => {
+                ['офф', 'двор', 'раскатки', 'спам'].forEach(cat => {
                     let ta = document.getElementById(`hub_t_textarea_${cat}`);
                     if (ta) {
                         localStorage.setItem(`ra_wb_category_${cat}`, ta.value);
@@ -757,7 +891,7 @@
 
             document.getElementById('hub_targets_clear_all').onclick = function() {
                 if (confirm('Очистить все блоки целей?')) {
-                    ['офф', 'двор', 'раскатка', 'спам'].forEach(cat => {
+                    ['офф', 'двор', 'раскатки', 'спам'].forEach(cat => {
                         localStorage.removeItem(`ra_wb_category_${cat}`);
                         let ta = document.getElementById(`hub_t_textarea_${cat}`);
                         if (ta) ta.value = '';
@@ -778,30 +912,51 @@
 
         } else if (tabId === '6') {
             container.innerHTML = `<div style="padding: 15px;"><h3 style="margin-top:0;">⚡ Загрузка Мультипланера...</h3></div>`;
-            let observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    mutation.addedNodes.forEach((node) => {
-                        if (node.nodeType === 1 && node.id !== 'tw-custom-hub-panel') {
-                            let style = window.getComputedStyle(node);
-                            if (style.position === 'fixed' || style.position === 'absolute') {
-                                node.style.cssText = 'position:relative; top:0; left:0; transform:none; margin:0; width:100%; height:100%; box-sizing:border-box;';
-                                container.innerHTML = '';
-                                container.appendChild(node);
-                                observer.disconnect();
-                            }
-                        }
-                    });
-                });
-            });
-            observer.observe(document.body, { childList: true, subtree: false });
-
+            
             fetch('https://raw.githubusercontent.com/jura75/tw-custom-hub-panel/refs/heads/main/tw-snipe-planner.js?_=' + Date.now())
                 .then(r => r.text()).then(code => {
-                    let s = document.createElement('script');
-                    s.textContent = code;
-                    document.body.appendChild(s);
-                    s.remove();
-                }).catch(err => { observer.disconnect(); container.innerHTML = `<div style="padding:15px; color:red;">Ошибка загрузки</div>`; });
+                    container.innerHTML = '';
+                    let wrapper = document.createElement('div');
+                    wrapper.style.cssText = 'width: 100%; height: 100%; overflow: auto; box-sizing: border-box; background: #fff8eb; position: relative;';
+                    container.appendChild(wrapper);
+
+                    let originalAppendChild = document.body.appendChild;
+                    let insertedNode = null;
+
+                    document.body.appendChild = function(node) {
+                        if (node && node.nodeType === 1 && node.id !== 'tw-custom-hub-panel') {
+                            insertedNode = node;
+                            wrapper.appendChild(node);
+                            node.style.cssText = 'position: relative !important; top: auto !important; left: auto !important; transform: none !important; margin: 0 auto !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; border: none !important; box-shadow: none !important;';
+                            document.body.appendChild = originalAppendChild;
+                            return node;
+                        }
+                        return originalAppendChild.call(document.body, node);
+                    };
+
+                    try {
+                        let s = document.createElement('script');
+                        s.textContent = code;
+                        document.body.appendChild(s);
+                        s.remove();
+                    } finally {
+                        document.body.appendChild = originalAppendChild;
+                    }
+
+                    setTimeout(() => {
+                        if (!insertedNode || wrapper.children.length === 0) {
+                            let possiblePlanners = document.querySelectorAll('div[id*="snipe"], div[id*="planner"], div[class*="popup"]');
+                            if (possiblePlanners.length > 0) {
+                                let target = possiblePlanners[possiblePlanners.length - 1];
+                                if (target && target.id !== 'tw-custom-hub-panel') {
+                                    wrapper.appendChild(target);
+                                    target.style.cssText = 'position: relative !important; top: auto !important; left: auto !important; transform: none !important; margin: 0 auto !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;';
+                                }
+                            }
+                        }
+                    }, 500);
+
+                }).catch(err => { container.innerHTML = `<div style="padding:15px; color:red;">Ошибка загрузки Мультипланера</div>`; });
         }
     }
 
