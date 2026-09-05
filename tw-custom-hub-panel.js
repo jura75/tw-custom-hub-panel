@@ -1,4 +1,4 @@
-javascript:(function() {
+(function() {
     let existing = document.getElementById('tw-custom-hub-panel');
     if (existing) {
         existing.remove();
@@ -107,7 +107,6 @@ javascript:(function() {
                 }).catch(err => { observer.disconnect(); container.innerHTML = `<div style="padding:15px; color:red;">Ошибка загрузки</div>`; });
 
         } else if (tabId === '2') {
-            // Восстановленная логика хранения данных первой версии с 5 колонками категорий
             container.innerHTML = `
                 <div style="padding: 10px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; background: #fff8eb;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: #f5e8cd; padding: 6px; border: 1px solid #c5a059; border-radius: 3px;">
@@ -575,10 +574,30 @@ javascript:(function() {
         } else if (tabId === '4') {
             container.innerHTML = `
                 <div style="padding: 10px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; background: #fff8eb;">
-                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px; background: #f5e8cd; padding: 6px; border: 1px solid #c5a059; border-radius: 3px; flex-wrap: wrap;">
-                        <span id="hub_db_counter" style="font-weight: bold; font-size: 11px; color: #5b3511;">Показано: 0 из 0</span>
-                        <button id="hub_db_btn_copy" style="margin-left: auto; background: #c5a059; border: 1px solid #7d510f; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 11px; color: #2b1d0c;">Копировать</button>
-                        <button id="hub_db_btn_clear" style="background: #d9534f; border: 1px solid #7d510f; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 3px; font-size: 11px; color: #fff;">Очистить</button>
+                    <!-- Панель фильтров аналогичная фото -->
+                    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; background: #f5e8cd; padding: 6px; border: 1px solid #c5a059; border-radius: 3px; flex-wrap: wrap;">
+                        <select id="hub_filter_player" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; max-width: 130px;">
+                            <option value="">Все игроки</option>
+                        </select>
+                        <select id="hub_filter_tribe" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; max-width: 130px;">
+                            <option value="">Все племена</option>
+                        </select>
+                        <select id="hub_filter_quad" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; max-width: 110px;">
+                            <option value="">Все квад.</option>
+                        </select>
+                        <select id="hub_filter_type" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; max-width: 100px;">
+                            <option value="">Все типы</option>
+                        </select>
+                        <input type="text" id="hub_filter_min_pts" placeholder="Мин. очки" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px;">
+                        <input type="text" id="hub_filter_max_pts" placeholder="Макс. очки" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px;">
+                        <button id="hub_db_btn_save_cfg" style="background: #e2c08e; border: 1px solid #7d510f; font-weight: bold; padding: 3px 6px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #5b3511;">Сохранить ▼</button>
+                        
+                        <div style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+                            <span id="hub_db_counter" style="font-weight: bold; font-size: 10px; color: #5b3511;">Показано: 0 из 0</span>
+                            <button id="hub_db_btn_demo" style="background: #f0ad4e; border: 1px solid #eea236; font-weight: bold; padding: 3px 6px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #fff;">Демо</button>
+                            <button id="hub_db_btn_copy" style="background: #c5a059; border: 1px solid #7d510f; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #2b1d0c;">Копировать</button>
+                            <button id="hub_db_btn_clear" style="background: #d9534f; border: 1px solid #7d510f; font-weight: bold; padding: 3px 8px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #fff;">Очистить</button>
+                        </div>
                     </div>
 
                     <div style="flex-grow: 1; border: 1px solid #c5a059; background: #fff; overflow: auto; border-radius: 3px;">
@@ -600,31 +619,63 @@ javascript:(function() {
                 </div>
             `;
 
+            function populateFilters(db) {
+                let pSelect = document.getElementById('hub_filter_player');
+                let tSelect = document.getElementById('hub_filter_tribe');
+                if (!pSelect || !tSelect) return;
+
+                let players = [...new Set(db.map(i => i.player).filter(Boolean))].sort();
+                let tribes = [...new Set(db.map(i => i.tribe).filter(Boolean))].sort();
+
+                pSelect.innerHTML = '<option value="">Все игроки</option>' + players.map(p => `<option value="${p}">${p}</option>`).join('');
+                tSelect.innerHTML = '<option value="">Все племена</option>' + tribes.map(t => `<option value="${t}">${t}</option>`).join('');
+            }
+
             function renderDBTable() {
                 let tbody = document.getElementById('hub_db_tbody');
                 if (!tbody) return;
                 tbody.innerHTML = '';
+                
                 let db = JSON.parse(localStorage.getItem('tw_hub_coord_db_v3') || '[]');
-                if (db.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #888; font-style: italic; padding: 20px;">База пуста. Выделите область на вкладке 3 и нажмите «В базу 4».</td></tr>`;
-                    document.getElementById('hub_db_counter').textContent = `Показано: 0 из 0`;
+                populateFilters(db);
+
+                let selPlayer = document.getElementById('hub_filter_player').value;
+                let selTribe = document.getElementById('hub_filter_tribe').value;
+                let minPts = parseInt(document.getElementById('hub_filter_min_pts').value) || 0;
+                let maxPts = parseInt(document.getElementById('hub_filter_max_pts').value) || 9999999;
+
+                let filtered = db.filter(item => {
+                    let ptsVal = parseInt(String(item.points).replace(/,/g, '')) || 0;
+                    if (selPlayer && item.player !== selPlayer) return false;
+                    if (selTribe && item.tribe !== selTribe) return false;
+                    if (ptsVal < minPts || ptsVal > maxPts) return false;
+                    return true;
+                });
+
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #888; font-style: italic; padding: 20px;">Нет данных под выбранные фильтры.</td></tr>`;
+                    document.getElementById('hub_db_counter').textContent = `Показано: 0 из ${db.length}`;
                     return;
                 }
-                db.forEach((item, idx) => {
+
+                filtered.forEach((item, idx) => {
+                    let originalIndex = db.indexOf(item);
                     let tr = document.createElement('tr');
                     tr.style.cssText = idx % 2 === 0 ? 'background: #fff; border-bottom: 1px solid #eee;' : 'background: #fcf8f2; border-bottom: 1px solid #eee;';
                     tr.innerHTML = `
-                        <td style="text-align: center; padding: 4px;"><input type="checkbox" class="hub-db-item" data-index="${idx}"></td>
+                        <td style="text-align: center; padding: 4px;"><input type="checkbox" class="hub-db-item" data-index="${originalIndex}"></td>
                         <td style="padding: 4px;">${item.name}</td>
                         <td style="padding: 4px; text-align: center; font-weight: bold;">${item.coord}</td>
                         <td style="padding: 4px;">${item.player}</td>
                         <td style="padding: 4px;">${item.tribe}</td>
                         <td style="padding: 4px; text-align: right;">${item.points}</td>
-                        <td style="padding: 4px; text-align: center;"><button class="hub-db-del-row" data-index="${idx}" style="background: #d9534f; color: #fff; border: none; border-radius: 2px; width: 18px; height: 18px; cursor: pointer; font-weight: bold; font-size: 10px;" title="Удалить">×</button></td>
+                        <td style="padding: 4px; text-align: center;"><button class="hub-db-del-row" data-index="${originalIndex}" style="background: #d9534f; color: #fff; border: none; border-radius: 2px; width: 18px; height: 18px; cursor: pointer; font-weight: bold; font-size: 10px;" title="Удалить">×</button></td>
                     `;
                     tbody.appendChild(tr);
                 });
-                document.getElementById('hub_db_counter').textContent = `Показано: ${db.length} из ${db.length}`;
+
+                document.getElementById('hub_db_counter').textContent = `Показано: ${filtered.length} из ${db.length}`;
+
                 tbody.querySelectorAll('.hub-db-del-row').forEach(btn => {
                     btn.onclick = function() {
                         let i = parseInt(this.getAttribute('data-index'));
@@ -634,12 +685,28 @@ javascript:(function() {
                     };
                 });
             }
+
             renderDBTable();
+
+            ['hub_filter_player', 'hub_filter_tribe', 'hub_filter_min_pts', 'hub_filter_max_pts'].forEach(id => {
+                let el = document.getElementById(id);
+                if (el) el.oninput = renderDBTable;
+                if (el) el.onchange = renderDBTable;
+            });
 
             document.getElementById('hub_db_btn_clear').onclick = function() {
                 if (confirm('Очистить базу координат?')) {
                     localStorage.removeItem('tw_hub_coord_db_v3');
                     renderDBTable();
+                }
+            };
+
+            document.getElementById('hub_db_btn_copy').onclick = function() {
+                let db = JSON.parse(localStorage.getItem('tw_hub_coord_db_v3') || '[]');
+                let text = db.map(i => `${i.coord}`).join('\n');
+                if (text) {
+                    navigator.clipboard.writeText(text);
+                    alert('Координаты из базы скопированы!');
                 }
             };
 
