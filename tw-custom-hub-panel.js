@@ -30,7 +30,7 @@
     panel.innerHTML = `
         <!-- Шапка панели (перетаскиваемая область) -->
         <div id="tw-hub-header" style="background: #1a1006; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7d510f; user-select: none; cursor: move;">
-            <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Внутренняя рабочая среда (С Таблицей)</b>
+            <b style="font-size: 13px; color: #f4e4bc;">🛠️ Проект Хаб — Верстак</b>
             <span id="tw-hub-close" style="cursor: pointer; color: #a63a3a; font-weight: bold; font-size: 16px; padding: 0 4px;">✕</span>
         </div>
         
