@@ -44,6 +44,7 @@
             <button class="tw-hub-tab-btn" data-tab="6" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">Мультипланер</button>
             <button class="tw-hub-tab-btn" data-tab="7" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">7. Захваты мира</button>
             <button class="tw-hub-tab-btn" data-tab="8" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">8. Гугл Таблица</button>
+            <button class="tw-hub-tab-btn" data-tab="9" style="background: #3b2812; border: 1px solid #7d510f; color: #f4e4bc; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 3px; white-space: nowrap;">9. Статистика племени</button>
         </div>
 
         <!-- Контейнер для контента выбранной вкладки -->
@@ -67,12 +68,11 @@
     let startX = 0, startY = 0;
 
     header.onmousedown = function(e) {
-        if (e.target.id === 'tw-hub-close') return; // Не тянуть при клике на крестик
+        if (e.target.id === 'tw-hub-close') return;
         isDraggingPanel = true;
         startX = e.clientX - panel.offsetLeft;
         startY = e.clientY - panel.offsetTop;
 
-        // Если панель была отцентрирована через transform, сбрасываем его на точные пиксели
         if (panel.style.transform.includes('translateX')) {
             let rect = panel.getBoundingClientRect();
             panel.style.transform = 'none';
@@ -92,7 +92,6 @@
         let newX = e.clientX - startX;
         let newY = e.clientY - startY;
 
-        // Ограничение по границам экрана
         newX = Math.max(0, Math.min(window.innerWidth - 100, newX));
         newY = Math.max(0, Math.min(window.innerHeight - 50, newY));
 
@@ -1402,6 +1401,40 @@
                     renderSheet();
                 }
             };
+
+        } else if (tabId === '9') {
+            container.innerHTML = `<div style="padding: 15px;"><h3 style="margin-top:0;">⚡ Загрузка Статистики племени...</h3></div>`;
+            
+            fetch('https://raw.githubusercontent.com/jura75/tw-custom-hub-panel/refs/heads/main/tw-offdef-stats.js?_=' + Date.now())
+                .then(r => r.text()).then(code => {
+                    container.innerHTML = '';
+                    let wrapper = document.createElement('div');
+                    wrapper.style.cssText = 'width: 100%; height: 100%; overflow: auto; box-sizing: border-box; background: #fff8eb; position: relative;';
+                    container.appendChild(wrapper);
+
+                    let originalAppendChild = document.body.appendChild;
+                    let insertedNode = null;
+
+                    document.body.appendChild = function(node) {
+                        if (node && node.nodeType === 1 && node.id !== 'tw-custom-hub-panel') {
+                            insertedNode = node;
+                            wrapper.appendChild(node);
+                            node.style.cssText = 'position: relative !important; top: auto !important; left: auto !important; transform: none !important; margin: 0 auto !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; border: none !important; box-shadow: none !important;';
+                            document.body.appendChild = originalAppendChild;
+                            return node;
+                        }
+                        return originalAppendChild.call(document.body, node);
+                    };
+
+                    try {
+                        let s = document.createElement('script');
+                        s.textContent = code;
+                        document.body.appendChild(s);
+                        s.remove();
+                    } finally {
+                        document.body.appendChild = originalAppendChild;
+                    }
+                }).catch(err => { container.innerHTML = `<div style="padding:15px; color:red;">Ошибка загрузки Статистики племени</div>`; });
         }
     }
 
