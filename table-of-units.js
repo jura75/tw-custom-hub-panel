@@ -280,7 +280,7 @@
         fetchNext();
     }
 
-    function updateHeaderColumns() {
+  function updateHeaderColumns() {
         let hasArchers = $('#world_has_archers').is(':checked');
 
         let html = `
@@ -298,9 +298,8 @@
             if (!hasArchers && (originalIdx === 3 || originalIdx === 6)) return; 
             let targetColIndex = 3 + unitIdx;
             html += `
-                <th style="padding: 6px;">
-                    <img src="https://dsru.innogamescdn.com/asset/depot/graphic/unit/unit_${u.icon}" title="${u.name}">
-                    <span class="col-filter-btn" data-col-index="${targetColIndex}" style="cursor: pointer; font-weight: bold; color: #7d510f; margin-left: 2px;" title="Меню фильтра">▼</span>
+                <th style="padding: 6px; font-size: 10px;">
+                    ${u.name} <span class="col-filter-btn" data-col-index="${targetColIndex}" style="cursor: pointer; font-weight: bold; color: #7d510f;" title="Меню фильтра">▼</span>
                 </th>
             `;
             unitIdx++;
