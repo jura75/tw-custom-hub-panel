@@ -1405,7 +1405,7 @@
         } else if (tabId === '9') {
             container.innerHTML = `<div style="padding: 15px;"><h3 style="margin-top:0;">⚡ Загрузка Статистики племени...</h3></div>`;
             
-            fetch('https://raw.githubusercontent.com/jura75/tw-custom-hub-panel/refs/heads/main/tw-offdef-stats.js?_=' + Date.now())
+            fetch('https://raw.githubusercontent.com/jura75/tw-custom-hub-panel/refs/heads/main/tw.offdef.autorun.js?_=' + Date.now())
                 .then(r => r.text()).then(code => {
                     container.innerHTML = '';
                     let wrapper = document.createElement('div');
@@ -1434,6 +1434,20 @@
                     } finally {
                         document.body.appendChild = originalAppendChild;
                     }
+
+                    setTimeout(() => {
+                        if (!insertedNode || wrapper.children.length === 0) {
+                            let possibleEls = document.querySelectorAll('div[id*="offdef"], div[id*="stats"], div[class*="popup"]');
+                            if (possibleEls.length > 0) {
+                                let target = possibleEls[possibleEls.length - 1];
+                                if (target && target.id !== 'tw-custom-hub-panel') {
+                                    wrapper.appendChild(target);
+                                    target.style.cssText = 'position: relative !important; top: auto !important; left: auto !important; transform: none !important; margin: 0 auto !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;';
+                                }
+                            }
+                        }
+                    }, 500);
+
                 }).catch(err => { container.innerHTML = `<div style="padding:15px; color:red;">Ошибка загрузки Статистики племени</div>`; });
         }
     }
