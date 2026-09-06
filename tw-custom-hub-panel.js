@@ -635,7 +635,7 @@
                 selectionBox.style.left = Math.min(startX2, cX) + 'px';
                 selectionBox.style.top = Math.min(startY2, cY) + 'px';
                 selectionBox.style.width = Math.abs(cX - startX2) + 'px';
-                selectionBox.style.height = Math.abs(cY - startX2) + 'px';
+                selectionBox.style.height = Math.abs(cY - startY2) + 'px';
             };
             window.onmouseup = function(e) {
                 if (!isDragging) return;
