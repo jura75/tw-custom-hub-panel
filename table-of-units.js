@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         TW Workbench - 1. Таблица войск (Идеальные фильтры)
-// @version      1.4.5
-// @description  Воркбенч аккаунта: единый точный порядок юнитов, запоминание настроек луков, парсинг «Своих» с первой строчки.
+// @name         TW Workbench - 1. Таблица войск (Full Google Sheets Filters)
+// @version      1.6.0
+// @description  Воркбенч аккаунт: полноценное меню фильтрации и сортировки (как в Google Таблицах) для каждого столбца.
 // @match        https://*.plemiona.pl/*
 // @match        https://*.voyna-plemen.ru/*
 // @match        https://*.tribalwars.net/*
@@ -11,16 +11,32 @@
 (function() {
     'use strict';
 
-    // ==========================================
-    // МОДУЛЬ 1: КОНСТАНТЫ И СОСТОЯНИЕ
-    // ==========================================
     const STORAGE_KEY = 'ra_wb_troops_data_v6';
     const SETTINGS_KEY = 'ra_wb_settings_v1';
     let globalTroopsData = [];
 
-    // ==========================================
-    // МОДУЛЬ 2: ИНИЦИАЛИЗАЦИЯ И ИНТЕРФЕЙС (UI)
-    // ==========================================
+    // Хранилище активных фильтров и сортировок для каждого столбца
+    // colKey: { type: 'values'/'condition', values: [...], condType: '>', condVal: '100' }
+    let columnFilters = {};
+    
+    // Текущая сортировка: { colIndex: number, asc: boolean }
+    let currentSort = { colIndex: null, asc: true };
+
+    const unitKeysConfig = [
+        { key: 'spear', name: 'Копейщик', icon: 'spear.png' },
+        { key: 'sword', name: 'Мечник', icon: 'sword.png' },
+        { key: 'axe', name: 'Топорник', icon: 'axe.png' },
+        { key: 'archer', name: 'Лучник', icon: 'archer.png' },
+        { key: 'spy', name: 'Разведчик', icon: 'spy.png' },
+        { key: 'light', name: 'Лёгкая кавалерия', icon: 'light.png' },
+        { key: 'marcher', name: 'Конный лучник', icon: 'marcher.png' },
+        { key: 'heavy', name: 'Тяжёлая кавалерия', icon: 'heavy.png' },
+        { key: 'ram', name: 'Таран', icon: 'ram.png' },
+        { key: 'catapult', name: 'Катапульта', icon: 'catapult.png' },
+        { key: 'knight', name: 'Паладин', icon: 'knight.png' },
+        { key: 'snob', name: 'Дворянин', icon: 'snob.png' }
+    ];
+
     function init() {
         if ($('#ra_workbench_main').length > 0) {
             $('#ra_workbench_main').toggle();
@@ -31,30 +47,26 @@
     }
 
     function createUI() {
-        // Восстанавливаем сохраненное состояние чекбокса луков (по умолчанию false / снят)
         let savedArchers = localStorage.getItem(SETTINGS_KEY + '_archers');
         let hasArchersChecked = savedArchers !== null ? JSON.parse(savedArchers) : false;
 
         const html = `
-            <div id="ra_workbench_main" style="position: fixed; top: 60px; left: 50px; width: 1180px; height: 600px; z-index: 99999; background: #fff8eb; border: 2px solid #7d510f; border-radius: 4px; display: flex; flex-direction: column; font-family: Verdana, Arial; font-size: 11px; box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
+            <div id="ra_workbench_main" style="position: fixed; top: 60px; left: 50px; width: 1240px; height: 620px; z-index: 99999; background: #fff8eb; border: 2px solid #7d510f; border-radius: 4px; display: flex; flex-direction: column; font-family: Verdana, Arial; font-size: 11px; box-shadow: 0 5px 15px rgba(0,0,0,0.4);">
                 
-                <!-- Компактная шапка воркбенча -->
                 <div id="ra_wb_header" style="background: #e2c08e; padding: 6px 10px; border-bottom: 2px solid #7d510f; display: flex; align-items: center; justify-content: space-between; cursor: move; user-select: none;">
                     <span style="font-weight: bold; color: #5b3511;">Таблица войск (TW Workbench)</span>
                     <button id="ra_wb_close" style="background: #c5a059; border: 1px solid #7d510f; color: #fff; font-weight: bold; cursor: pointer; padding: 2px 6px; border-radius: 3px;">×</button>
                 </div>
 
-                <!-- Панель управления -->
-                <div style="background: #f4ecd8; padding: 8px; border-bottom: 1px solid #c5a059; display: flex; align-items: center; gap: 8px;">
-                    <button id="btn_fetch_troops" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;" title="Снять свои войска со страницы Обзор->Войска">Снять со страницы</button>
-                    <button id="btn_fetch_ally" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;" title="Собрать войска со страниц обзора племени">Войска племени</button>
+                <div style="background: #f4ecd8; padding: 8px; border-bottom: 1px solid #c5a059; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <button id="btn_fetch_troops" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;">Снять со страницы</button>
+                    <button id="btn_fetch_ally" style="background: #f4ecd8; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;">Войска племени</button>
                     <button id="btn_clear_troops" style="background: #d9534f; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #fff;">Очистить</button>
                     
                     <label style="margin-left: 10px; font-weight: bold; color: #5b3511; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="checkbox" id="world_has_archers" ${hasArchersChecked ? 'checked' : ''} style="cursor: pointer;"> Мир с луками
                     </label>
 
-                    <!-- Меню сохранения -->
                     <div style="position: relative; display: inline-block; margin-left: 10px;">
                         <button id="btn_save_dropdown" style="background: #e2c08e; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;">Сохранить выбранное ▼</button>
                         <div id="save_menu" style="display: none; position: absolute; top: 100%; left: 0; background: #fff8eb; border: 1px solid #7d510f; z-index: 100005; box-shadow: 0 4px 8px rgba(0,0,0,0.2); width: 130px;">
@@ -66,8 +78,12 @@
                         </div>
                     </div>
 
+                    <button id="btn_reset_all_filters" style="background: #e2c08e; border: 1px solid #7d510f; padding: 4px 10px; cursor: pointer; border-radius: 3px; color: #5b3511; font-weight: bold; margin-left: 5px;">Сбросить все фильтры</button>
                     <span id="troops_count_info" style="font-weight: bold; color: #5b3511; margin-left: auto;">Записей: 0 из 0</span>
                 </div>
+
+                <!-- Контейнер для всплывающего Google-меню фильтрации -->
+                <div id="g_filter_popup" style="display: none; position: absolute; background: #fff8eb; border: 1px solid #7d510f; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 100050; padding: 10px; width: 240px; border-radius: 3px; font-size: 11px;"></div>
 
                 <!-- Таблица -->
                 <div id="table_container" style="flex-grow: 1; overflow: auto; background: #fff; position: relative;">
@@ -76,7 +92,7 @@
                             <tr id="table_header_row" style="background: #e2c08e; color: #5b3511; position: sticky; top: 0; z-index: 10;"></tr>
                         </thead>
                         <tbody id="troops_table_body">
-                            <tr><td colspan="15" style="padding: 25px; color: #777;">Нет данных. Нажмите «Снять со страницы» на обзоре войск или «Войска племени».</td></tr>
+                            <tr><td colspan="20" style="padding: 25px; color: #777;">Нет данных. Нажмите «Снять со страницы» на обзоре войск или «Войска племени».</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -89,12 +105,8 @@
         makeDraggable('#ra_workbench_main', '#ra_wb_header');
     }
 
-    // ==========================================
-    // ЕДИНЫЙ ТОЧНЫЙ МАППИНГ ЮНИТОВ ДЛЯ ВСЕХ ИСТОЧНИКОВ
-    // ==========================================
     function mapUnitsCorrectly(raw, hasArchers) {
         let mapped = new Array(12).fill(0);
-
         if (hasArchers) {
             for (let i = 0; i < Math.min(raw.length, 12); i++) {
                 mapped[i] = raw[i] || 0;
@@ -116,9 +128,6 @@
         return mapped;
     }
 
-    // ==========================================
-    // МОДУЛЬ 3: ПАРСИНГ СВОИХ ВОЙСК (ТОЛЬКО СТРОКА «СВОИ»)
-    // ==========================================
     function parseTroops() {
         let container = document.querySelector('table#units_table');
         if (!container) {
@@ -142,7 +151,6 @@
             let coords = matchCoord[1];
 
             let trs = row.querySelectorAll('tr');
-            // Считываем войска исключительно из первой строчки trs[0] («Свои»)
             let available_tds = trs[0] ? trs[0].querySelectorAll('td.unit-item') : [];
 
             let rawUnits = [];
@@ -152,7 +160,6 @@
             }
 
             let units = mapUnitsCorrectly(rawUnits, hasArchers);
-
             let axeCount = units[2] || 0;
             let lightCount = units[5] || 0;
             let isOff = (axeCount > 1500 || lightCount > 500);
@@ -168,16 +175,13 @@
         if (data.length > 0) {
             globalTroopsData = data;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            renderTable(globalTroopsData);
+            renderTable();
             alert(`Успешно собрано своих деревень: ${data.length}`);
         } else {
             alert('Не удалось извлечь данные войск со страницы.');
         }
     }
 
-    // ==========================================
-    // МОДУЛЬ 4: ПАРСИНГ ВОЙСК ПЛЕМЕНИ
-    // ==========================================
     function parseAllyTroops() {
         var urlObj = new URL(window.location.href);
         var params = urlObj.searchParams;
@@ -206,7 +210,7 @@
         }
 
         let hasArchers = $('#world_has_archers').is(':checked');
-        $('#troops_table_body').html('<tr><td colspan="15" style="padding: 25px; font-weight: bold; color: #b22222;">Загрузка данных игроков племени, подождите...</td></tr>');
+        $('#troops_table_body').html('<tr><td colspan="20" style="padding: 25px; font-weight: bold; color: #b22222;">Загрузка данных игроков племени, подождите...</td></tr>');
 
         let allyData = [];
         let keys = Object.keys(unitoption);
@@ -217,11 +221,11 @@
                 if (allyData.length > 0) {
                     globalTroopsData = allyData;
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(globalTroopsData));
-                    renderTable(globalTroopsData);
+                    renderTable();
                     alert(`Успешно загружены войска племени: записей (${allyData.length})`);
                 } else {
                     alert('Не удалось собрать данные игроков племени.');
-                    renderTable([]);
+                    renderTable();
                 }
                 return;
             }
@@ -253,7 +257,6 @@
                             }
 
                             let units = mapUnitsCorrectly(rawUnits, hasArchers);
-
                             let spear = units[0] || 0;
                             let axe = units[2] || 0;
                             let type = (spear > axe) ? "дефф" : "офф";
@@ -269,384 +272,449 @@
                 } catch(err) {
                     console.error("Ошибка парсинга игрока " + playerName, err);
                 }
-
-                setTimeout(fetchNext, 250);
+                setTimeout(fetchNext, 200);
             }).fail(function() {
-                setTimeout(fetchNext, 250);
+                setTimeout(fetchNext, 200);
             });
         }
-
         fetchNext();
     }
 
-    // ==========================================
-    // МОДУЛЬ 5: РЕНДЕРИНГ И ШАПКА
-    // ==========================================
     function updateHeaderColumns() {
         let hasArchers = $('#world_has_archers').is(':checked');
-        
-        let colIdx = {
-            player: 0,
-            coords: 1,
-            spear: 2,
-            sword: 3,
-            axe: 4,
-            archer: 5,
-            spy: 6,
-            light: 7,
-            marcher: 8,
-            heavy: 9,
-            ram: 10,
-            catapult: 11,
-            knight: 12,
-            snob: 13,
-            type: 14
-        };
-
-        if (!hasArchers) {
-            colIdx.spy = 5;
-            colIdx.light = 6;
-            colIdx.heavy = 7;
-            colIdx.ram = 8;
-            colIdx.catapult = 9;
-            colIdx.knight = 10;
-            colIdx.snob = 11;
-            colIdx.type = 12;
-        }
-
-        let archerCols = hasArchers ? `
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.archer}" title="Лучник"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_archer.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-        ` : '';
-
-        let marcherCol = hasArchers ? `
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.marcher}" title="Кавалерия лучников (КЛ лучники)"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_marcher.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-        ` : '';
 
         let html = `
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.player}">Ник игрока <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.coords}">Координаты <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.spear}" title="Копейщик"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_spear.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.sword}" title="Мечник"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_sword.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.axe}" title="Топорник"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_axe.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            ${archerCols}
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.spy}" title="Лазутчик (Разведчик)"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_spy.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.light}" title="Лёгкая кавалерия (ЛК)"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_light.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            ${marcherCol}
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.heavy}" title="Тяжёлая кавалерия (ТК)"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_heavy.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.ram}" title="Таран"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_ram.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.catapult}" title="Катапульта"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_catapult.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.knight}" title="Паладин"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_knight.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.snob}" title="Дворянин"><img src="https://dsru.innogamescdn.com/asset/105f9922/graphic/unit/unit_snob.png"/> <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;" data-col="${colIdx.type}">Тип <span class="filter-ico" style="cursor:pointer;">▼</span></th>
-            <th style="border: 1px solid #c5a059; padding: 4px;"><input type="checkbox" id="select_all_chk" style="cursor:pointer;"></th>
+            <th style="padding: 6px; width: 30px;"><input type="checkbox" id="select_all_troops" style="cursor: pointer;"></th>
+            <th style="padding: 6px; text-align: left;">
+                Игрок <span class="col-filter-btn" data-col-index="1" style="cursor: pointer; font-weight: bold; color: #7d510f;" title="Меню фильтра">▼</span>
+            </th>
+            <th style="padding: 6px; text-align: left;">
+                Координаты <span class="col-filter-btn" data-col-index="2" style="cursor: pointer; font-weight: bold; color: #7d510f;" title="Меню фильтра">▼</span>
+            </th>
+        `;
+
+        let unitIdx = 0;
+        unitKeysConfig.forEach((u, originalIdx) => {
+            if (!hasArchers && (originalIdx === 3 || originalIdx === 6)) return; 
+            let targetColIndex = 3 + unitIdx;
+            html += `
+                <th style="padding: 6px;">
+                    <img src="https://dsru.innogamescdn.com/asset/depot/graphic/unit/unit_${u.icon}" title="${u.name}">
+                    <span class="col-filter-btn" data-col-index="${targetColIndex}" style="cursor: pointer; font-weight: bold; color: #7d510f; margin-left: 2px;" title="Меню фильтра">▼</span>
+                </th>
+            `;
+            unitIdx++;
+        });
+
+        let typeColIdx = 3 + unitIdx;
+        html += `
+            <th style="padding: 6px;">
+                Тип <span class="col-filter-btn" data-col-index="${typeColIdx}" style="cursor: pointer; font-weight: bold; color: #7d510f;" title="Меню фильтра">▼</span>
+            </th>
         `;
         $('#table_header_row').html(html);
     }
 
-    function renderTable(data) {
-        let tbody = $('#troops_table_body');
-        tbody.empty();
-        $('#troops_count_info').text(`Записей: ${data.length} из ${globalTroopsData.length}`);
-        $('#select_all_chk').prop('checked', false);
+    function getCellValue(item, colIndex, hasArchers) {
+        if (colIndex === 1) return item.player;
+        if (colIndex === 2) return item.coords;
+        
+        let unitRealIndices = [];
+        unitKeysConfig.forEach((u, idx) => {
+            if (hasArchers || (idx !== 3 && idx !== 6)) unitRealIndices.push(idx);
+        });
 
-        if (data.length === 0) {
-            tbody.html('<tr><td colspan="15" style="padding: 25px; color: #777;">Нет данных</td></tr>');
+        let unitColOffset = colIndex - 3;
+        if (unitColOffset >= 0 && unitColOffset < unitRealIndices.length) {
+            let realUnitIdx = unitRealIndices[unitColOffset];
+            return item.units[realUnitIdx] || 0;
+        }
+
+        // Последняя колонка — тип
+        return item.type;
+    }
+
+    function renderTable() {
+        let tbody = $('#troops_table_body');
+        tbody.html('');
+        let hasArchers = $('#world_has_archers').is(':checked');
+
+        let dataToProcess = [...globalTroopsData];
+
+        // 1. Применяем фильтры для всех столбцов
+        let filteredData = dataToProcess.filter(item => {
+            for (let colIdx in columnFilters) {
+                let flt = columnFilters[colIdx];
+                if (!flt) continue;
+                let val = getCellValue(item, parseInt(colIdx), hasArchers);
+
+                if (flt.type === 'values') {
+                    if (flt.values && !flt.values.includes(String(val))) {
+                        return false;
+                    }
+                } else if (flt.type === 'condition') {
+                    let numVal = parseFloat(val);
+                    let targetNum = parseFloat(flt.condVal);
+                    if (isNaN(numVal)) numVal = 0;
+                    if (isNaN(targetNum)) targetNum = 0;
+
+                    if (flt.condType === '>' && !(numVal > targetNum)) return false;
+                    if (flt.condType === '>=' && !(numVal >= targetNum)) return false;
+                    if (flt.condType === '<' && !(numVal < targetNum)) return false;
+                    if (flt.condType === '<=' && !(numVal <= targetNum)) return false;
+                    if (flt.condType === '=' && !(numVal === targetNum)) return false;
+                    if (flt.condType === '!=' && !(numVal !== targetNum)) return false;
+                    if (flt.condType === 'contains' && !String(val).toLowerCase().includes(String(flt.condVal).toLowerCase())) return false;
+                }
+            }
+            return true;
+        });
+
+        // 2. Применяем сортировку
+        if (currentSort.colIndex !== null) {
+            let cIdx = currentSort.colIndex;
+            let asc = currentSort.asc;
+            filteredData.sort((a, b) => {
+                let vA = getCellValue(a, cIdx, hasArchers);
+                let vB = getCellValue(b, cIdx, hasArchers);
+
+                let nA = parseFloat(vA);
+                let nB = parseFloat(vB);
+
+                if (!isNaN(nA) && !isNaN(nB)) {
+                    return asc ? nA - nB : nB - nA;
+                } else {
+                    let sA = String(vA).toLowerCase();
+                    let sB = String(vB).toLowerCase();
+                    if (sA < sB) return asc ? -1 : 1;
+                    if (sA > sB) return asc ? 1 : -1;
+                    return 0;
+                }
+            });
+        }
+
+        $('#troops_count_info').text(`Записей: ${filteredData.length} из ${globalTroopsData.length}`);
+
+        if (filteredData.length === 0) {
+            tbody.html(`<tr><td colspan="20" style="padding: 25px; color: #777;">Нет записей, удовлетворяющих условиям фильтра.</td></tr>`);
             return;
         }
 
-        let hasArchers = $('#world_has_archers').is(':checked');
+        let html = '';
+        filteredData.forEach(function(item, idx) {
+            let unitRealIndices = [];
+            unitKeysConfig.forEach((u, uIdx) => {
+                if (hasArchers || (uIdx !== 3 && uIdx !== 6)) unitRealIndices.push(uIdx);
+            });
 
-        data.forEach((item, idx) => {
-            let unitsToDisplay = [...item.units];
-            while(unitsToDisplay.length < 12) unitsToDisplay.push(0);
+            html += `
+                <tr style="border-bottom: 1px solid #e3d0b1; background: ${idx % 2 === 0 ? '#fff' : '#fcf8f2'};">
+                    <td style="padding: 4px;"><input type="checkbox" class="troop-row-chk" data-coords="${item.coords}" style="cursor: pointer;"></td>
+                    <td style="padding: 4px; text-align: left; font-weight: bold;">${item.player}</td>
+                    <td style="padding: 4px; text-align: left; font-family: monospace; font-weight: bold;">${item.coords}</td>
+            `;
 
-            let displaySlice = [...unitsToDisplay];
-            if (!hasArchers) {
-                displaySlice = displaySlice.filter((_, i) => i !== 3 && i !== 6);
-            }
+            unitRealIndices.forEach(uIdx => {
+                let val = item.units[uIdx] || 0;
+                html += `<td style="padding: 4px; color: ${val > 0 ? '#000' : '#aaa'};">${val > 0 ? val.toLocaleString() : '0'}</td>`;
+            });
 
-            let uTds = displaySlice.map(u => `<td style="border: 1px solid #e3d0b1; padding: 3px;">${u}</td>`).join('');
-            let tr = `
-                <tr style="background: #fff;">
-                    <td style="border: 1px solid #e3d0b1; padding: 3px; font-weight: bold; text-align: left; padding-left: 6px;">${item.player}</td>
-                    <td style="border: 1px solid #e3d0b1; padding: 3px; color: #000; font-weight: bold;">${item.coords}</td>
-                    ${uTds}
-                    <td style="border: 1px solid #e3d0b1; padding: 3px; font-weight: bold; color: ${item.type==='офф'?'#b22222':'#00008b'};">${item.type}</td>
-                    <td style="border: 1px solid #e3d0b1; padding: 3px;"><input type="checkbox" class="row-sel" data-index="${idx}" style="cursor:pointer;"></td>
+            html += `
+                    <td style="padding: 4px; font-weight: bold; color: ${item.type === 'офф' ? '#b22222' : '#00008b'};">${item.type.toUpperCase()}</td>
                 </tr>
             `;
-            tbody.append(tr);
         });
+
+        tbody.html(html);
     }
 
     function loadData() {
         let saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-            try { 
+            try {
                 globalTroopsData = JSON.parse(saved);
-                renderTable(globalTroopsData); 
-            } catch(e){}
+                renderTable();
+            } catch(e) {
+                globalTroopsData = [];
+            }
         }
     }
 
-    // ==========================================
-    // МОДУЛЬ 6: СОБЫТИЯ И ПАМЯТЬ НАСТРОЕК
-    // ==========================================
-    function bindEvents() {
-        $('#ra_wb_close').on('click', () => $('#ra_workbench_main').remove());
-        $('#btn_clear_troops').on('click', () => {
-            localStorage.removeItem(STORAGE_KEY);
-            globalTroopsData = [];
-            renderTable([]);
+    // Открытие полноценного меню Google Таблицы для выбранного столбца
+    function openGoogleFilterMenu(colIndex, btnElement) {
+        let $popup = $('#g_filter_popup');
+        let offset = $(btnElement).offset();
+        let mainOffset = $('#ra_workbench_main').offset();
+
+        $popup.css({
+            top: (offset.top - mainOffset.top + 20) + 'px',
+            left: Math.min(offset.left - mainOffset.left, 980) + 'px'
         });
+
+        let hasArchers = $('#world_has_archers').is(':checked');
+        
+        // Собираем все уникальные значения для этого столбца
+        let allValues = globalTroopsData.map(item => String(getCellValue(item, colIndex, hasArchers)));
+        let uniqueValues = [...new Set(allValues)].sort((a, b) => {
+            let na = parseFloat(a), nb = parseFloat(b);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return a.localeCompare(b);
+        });
+
+        let currentFlt = columnFilters[colIndex] || { type: 'values', values: null };
+
+        let menuHtml = `
+            <div class="g-menu-item" id="g_sort_asc" style="padding: 5px 8px; cursor: pointer; border-bottom: 1px solid #f0e2cd; font-weight: bold;">Сортировать по возрастанию (А -> Я)</div>
+            <div class="g-menu-item" id="g_sort_desc" style="padding: 5px 8px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Сортировать по убыванию (Я -> А)</div>
+            
+            <div style="padding: 6px 8px; font-weight: bold; color: #5b3511; border-bottom: 1px solid #e3d0b1; margin-top: 2px;">Фильтровать по условию:</div>
+            <div style="padding: 4px 8px; display: flex; gap: 4px; align-items: center;">
+                <select id="cond_type_sel" style="font-size: 10px; border: 1px solid #c5a059; padding: 2px;">
+                    <option value=">">Больше (&gt;)</option>
+                    <option value=">=">Больше или равно (&gt;=)</option>
+                    <option value="<">Меньше (&lt;)</option>
+                    <option value="<=">Меньше или равно (&lt;=)</option>
+                    <option value="=">Равно (=)</option>
+                    <option value="!=">Не равно (!=)</option>
+                    <option value="contains">Содержит текст</option>
+                </select>
+                <input type="text" id="cond_val_input" placeholder="Значение" style="width: 70px; padding: 2px; font-size: 10px; border: 1px solid #c5a059;">
+            </div>
+            <div style="padding: 0 8px 6px 8px; border-bottom: 1px solid #e3d0b1;">
+                <button id="apply_cond_btn" style="background: #e2c08e; border: 1px solid #7d510f; padding: 2px 8px; cursor: pointer; font-size: 10px; font-weight: bold; border-radius: 2px;">Применить условие</button>
+            </div>
+
+            <div style="padding: 6px 8px 3px 8px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; color: #5b3511;">По значению:</span>
+                <div>
+                    <a href="#" id="sel_all_vals" style="font-size: 10px; color: #00008b; text-decoration: underline; margin-right: 6px;">Все</a>
+                    <a href="#" id="clear_all_vals" style="font-size: 10px; color: #b22222; text-decoration: underline;">Очистить</a>
+                </div>
+            </div>
+            <div style="padding: 0 8px 4px 8px;">
+                <input type="text" id="popup_search_val" placeholder="Поиск..." style="width: 100%; padding: 3px; box-sizing: border-box; border: 1px solid #c5a059; font-size: 10px;">
+            </div>
+            <div style="max-height: 130px; overflow-y: auto; border: 1px solid #e3d0b1; background: #fff; padding: 4px; margin: 0 8px;" id="popup_checkboxes_container">
+        `;
+
+        uniqueValues.forEach(val => {
+            let isChecked = true;
+            if (currentFlt.type === 'values' && currentFlt.values !== null) {
+                isChecked = currentFlt.values.includes(val);
+            }
+            menuHtml += `<label style="display: block; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px;"><input type="checkbox" class="g_val_chk" value="${val}" ${isChecked ? 'checked' : ''}> ${val}</label>`;
+        });
+
+        menuHtml += `
+            </div>
+            <div style="margin: 8px 8px 0 8px; display: flex; justify-content: space-between;">
+                <button id="popup_apply_values" style="background: #e2c08e; border: 1px solid #7d510f; padding: 3px 12px; font-weight: bold; cursor: pointer; border-radius: 2px; color: #5b3511;">ОК</button>
+                <button id="popup_reset_col" style="background: #fff; border: 1px solid #7d510f; padding: 3px 8px; cursor: pointer; border-radius: 2px; color: #b22222;">Сбросить столбец</button>
+            </div>
+        `;
+
+        $popup.html(menuHtml).show();
+
+        // Обработчики внутри меню
+        $('#g_sort_asc').on('click', function() {
+            currentSort = { colIndex: colIndex, asc: true };
+            $popup.hide();
+            renderTable();
+        });
+
+        $('#g_sort_desc').on('click', function() {
+            currentSort = { colIndex: colIndex, asc: false };
+            $popup.hide();
+            renderTable();
+        });
+
+        $('#popup_search_val').on('input', function() {
+            let text = $(this).val().toLowerCase();
+            $('.g_val_chk').each(function() {
+                let v = $(this).val().toLowerCase();
+                if (v.includes(text)) {
+                    $(this).parent().show();
+                } else {
+                    $(this).parent().hide();
+                }
+            });
+        });
+
+        $('#sel_all_vals').on('click', function(e) {
+            e.preventDefault();
+            $('.g_val_chk').prop('checked', true);
+        });
+
+        $('#clear_all_vals').on('click', function(e) {
+            e.preventDefault();
+            $('.g_val_chk').prop('checked', false);
+        });
+
+        $('#apply_cond_btn').on('click', function() {
+            let condType = $('#cond_type_sel').val();
+            let condVal = $('#cond_val_input').val();
+            columnFilters[colIndex] = {
+                type: 'condition',
+                condType: condType,
+                condVal: condVal
+            };
+            $popup.hide();
+            renderTable();
+        });
+
+        $('#popup_apply_values').on('click', function() {
+            let selectedVals = [];
+            $('.g_val_chk:checked').each(function() {
+                selectedVals.push($(this).val());
+            });
+
+            if (selectedVals.length === uniqueValues.length) {
+                delete columnFilters[colIndex];
+            } else {
+                columnFilters[colIndex] = {
+                    type: 'values',
+                    values: selectedVals
+                };
+            }
+            $popup.hide();
+            renderTable();
+        });
+
+        $('#popup_reset_col').on('click', function() {
+            delete columnFilters[colIndex];
+            $popup.hide();
+            renderTable();
+        });
+    }
+
+    function bindEvents() {
+        $('#ra_wb_close').on('click', function() {
+            $('#ra_workbench_main').hide();
+            $('#g_filter_popup').hide();
+        });
+
         $('#btn_fetch_troops').on('click', parseTroops);
         $('#btn_fetch_ally').on('click', parseAllyTroops);
 
-        $('#world_has_archers').on('change', function() {
-            let isChecked = $(this).is(':checked');
-            // Сохраняем выбор в localStorage для памяти настроек
-            localStorage.setItem(SETTINGS_KEY + '_archers', JSON.stringify(isChecked));
-            
-            updateHeaderColumns();
-            renderTable(globalTroopsData);
+        $('#btn_clear_troops').on('click', function() {
+            if (confirm('Очистить сохраненную таблицу войск?')) {
+                globalTroopsData = [];
+                localStorage.removeItem(STORAGE_KEY);
+                renderTable();
+            }
         });
 
-        $(document).on('change', '#select_all_chk', function() {
+        $('#world_has_archers').on('change', function() {
             let isChecked = $(this).is(':checked');
-            $('.row-sel').prop('checked', isChecked);
+            localStorage.setItem(SETTINGS_KEY + '_archers', JSON.stringify(isChecked));
+            updateHeaderColumns();
+            renderTable();
+        });
+
+        // Клик по треугольнику ▼ в любой колонке
+        $(document).on('click', '.col-filter-btn', function(e) {
+            e.stopPropagation();
+            let colIdx = parseInt($(this).attr('data-col-index'));
+            openGoogleFilterMenu(colIdx, this);
+        });
+
+        // Закрытие меню при клике в сторону
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#g_filter_popup, .col-filter-btn').length) {
+                $('#g_filter_popup').hide();
+            }
+        });
+
+        $('#btn_reset_all_filters').on('click', function() {
+            columnFilters = {};
+            currentSort = { colIndex: null, asc: true };
+            $('#g_filter_popup').hide();
+            renderTable();
+        });
+
+        $('#select_all_troops').on('change', function() {
+            let isChecked = $(this).is(':checked');
+            $('.troop-row-chk').prop('checked', isChecked);
         });
 
         $('#btn_save_dropdown').on('click', function(e) {
             e.stopPropagation();
             $('#save_menu').toggle();
         });
-        $(document).on('click', function() { $('#save_menu').hide(); });
+
+        $(document).on('click', function() {
+            $('#save_menu').hide();
+        });
 
         $('.save-option').on('click', function() {
-            let category = $(this).data('cat');
-            let selectedItems = [];
-            $('.row-sel:checked').each(function() {
-                let idx = $(this).data('index');
-                if (globalTroopsData[idx]) {
-                    selectedItems.push(globalTroopsData[idx]);
-                }
-            });
-
-            if (selectedItems.length === 0) {
-                alert('Не выбрано ни одной строки!');
+            let cat = $(this).attr('data-cat');
+            let checkedBoxes = $('.troop-row-chk:checked');
+            if (checkedBoxes.length === 0) {
+                alert('Не выбрано ни одной строки в таблице!');
                 return;
             }
 
-            let storageKeyCat = `ra_wb_category_${category}`;
-            let existing = JSON.parse(localStorage.getItem(storageKeyCat) || '[]');
-            localStorage.setItem(storageKeyCat, JSON.stringify(existing.concat(selectedItems)));
-            alert(`Успешно сохранено элементов (${selectedItems.length}) в категорию: ${category.toUpperCase()}`);
-        });
-
-        $(document).on('click', '.filter-ico', function(e) {
-            e.stopPropagation();
-            $('.sheets-filter-popup').remove();
-            
-            let th = $(this).closest('th');
-            let colIdx = parseInt(th.attr('data-col'));
-            if (isNaN(colIdx)) return;
-
-            let isNumericCol = (colIdx >= 2 && colIdx <= 13);
-
-            let numericControlsHtml = isNumericCol ? `
-                <div style="margin: 4px 0 6px 0; padding-top: 4px; border-top: 1px solid #e3d0b1;">
-                    <div style="font-weight: bold; color: #5b3511; margin-bottom: 2px;">Фильтровать по условию:</div>
-                    <select class="f-num-op" style="width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #c5a059; margin-bottom: 3px; background: #fff; font-size: 10px;">
-                        <option value="all">Все</option>
-                        <option value="gt">&gt; Больше</option>
-                        <option value="gte">&ge; Больше или равно</option>
-                        <option value="lt">&lt; Меньше</option>
-                        <option value="lte">&le; Меньше или равно</option>
-                    </select>
-                    <input type="number" class="f-num-val" placeholder="Число..." style="width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #c5a059; font-size: 10px;">
-                </div>
-            ` : '';
-
-            let popup = `
-                <div class="sheets-filter-popup" style="position: fixed; background: #fff8eb; border: 1px solid #7d510f; padding: 6px; z-index: 100020; box-shadow: 0 4px 10px rgba(0,0,0,0.3); text-align: left; font-size: 11px; width: 210px;">
-                    <div class="f-action" data-act="asc" style="padding: 3px 4px; cursor:pointer; border-bottom: 1px solid #e3d0b1;">Сортировать А &gt; Я</div>
-                    <div class="f-action" data-act="desc" style="padding: 3px 4px; cursor:pointer; border-bottom: 1px solid #e3d0b1;">Сортировать Я &gt; А</div>
-                    
-                    ${numericControlsHtml}
-
-                    <div style="padding: 4px 0 2px 0; font-weight: bold; color: #5b3511;">Фильтровать по значению:</div>
-                    <input type="text" class="f-search" placeholder="Поиск..." style="width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #c5a059; margin-bottom: 3px; font-size: 10px;">
-                    
-                    <div style="display: flex; gap: 6px; font-size: 10px; margin-bottom: 3px; color: #333;">
-                        <span class="f-select-all" style="cursor:pointer; text-decoration: underline;">Выбрать все</span> / 
-                        <span class="f-clear-all" style="cursor:pointer; text-decoration: underline;">Сбросить</span>
-                    </div>
-
-                    <div class="f-values-list" style="max-height: 95px; overflow-y: auto; background: #fff; border: 1px solid #c5a059; padding: 3px; font-size: 10px;"></div>
-                    
-                    <div style="display: flex; justify-content: space-between; margin-top: 8px; border-top: 1px solid #e3d0b1; padding-top: 6px;">
-                        <button class="f-cancel" style="cursor:pointer; padding: 2px 10px; background: #f4ecd8; border: 1px solid #7d510f; border-radius: 2px; font-size: 10px;">Отмена</button>
-                        <button class="f-ok" style="cursor:pointer; padding: 2px 14px; background: #2e6b30; color: #fff; border: 1px solid #1e4620; border-radius: 2px; font-weight: bold; font-size: 10px;">OK</button>
-                    </div>
-                </div>
-            `;
-            
-            $('body').append(popup);
-            
-            let thOffset = th.offset();
-            let popupTop = thOffset.top + th.outerHeight();
-            let popupLeft = thOffset.left;
-            if (popupLeft + 210 > $(window).width()) {
-                popupLeft = $(window).width() - 220;
+            let storageKey = `ra_wb_category_${cat}`;
+            let existing = localStorage.getItem(storageKey) || '';
+            let items = [];
+            if (existing.trim().startsWith('[')) {
+                try { items = JSON.parse(existing); } catch(e) {}
+            } else if (existing.trim() !== '') {
+                items = existing.split('\n').filter(Boolean).map(c => ({ coords: c, player: '' }));
             }
 
-            $('.sheets-filter-popup').css({ 
-                top: popupTop + 'px', 
-                left: popupLeft + 'px' 
-            });
-
-            let uniqueVals = [...new Set(globalTroopsData.map(item => getValForCol(item, colIdx)))].sort((a,b) => {
-                if (!isNaN(a) && !isNaN(b)) return Number(a) - Number(b);
-                return String(a).localeCompare(String(b));
-            });
-
-            let valListDiv = $('.sheets-filter-popup .f-values-list');
-            uniqueVals.forEach(val => {
-                valListDiv.append(`<label style="display:block; cursor:pointer; line-height: 1.4;"><input type="checkbox" class="f-val-chk" value="${val}" checked> ${val}</label>`);
-            });
-
-            $('.sheets-filter-popup .f-search').on('input', function() {
-                let term = $(this).val().toLowerCase();
-                valListDiv.find('label').each(function() {
-                    let txt = $(this).text().toLowerCase();
-                    $(this).toggle(txt.includes(term));
-                });
-            });
-
-            $('.f-select-all').on('click', () => valListDiv.find('.f-val-chk').prop('checked', true));
-            $('.f-clear-all').on('click', () => valListDiv.find('.f-val-chk').prop('checked', false));
-
-            $('.f-action').on('click', function() {
-                let act = $(this).data('act');
-                if (act === 'asc') {
-                    globalTroopsData.sort((a,b) => {
-                        let va = getValForCol(a, colIdx), vb = getValForCol(b, colIdx);
-                        return (!isNaN(va) && !isNaN(vb)) ? Number(va) - Number(vb) : String(va).localeCompare(String(vb));
-                    });
-                } else {
-                    globalTroopsData.sort((a,b) => {
-                        let va = getValForCol(a, colIdx), vb = getValForCol(b, colIdx);
-                        return (!isNaN(va) && !isNaN(vb)) ? Number(vb) - Number(va) : String(vb).localeCompare(String(va));
-                    });
-                }
-                renderTable(globalTroopsData);
-                $('.sheets-filter-popup').remove();
-            });
-
-            $('.f-cancel').on('click', () => $('.sheets-filter-popup').remove());
-            
-            $('.f-ok').on('click', function() {
-                let allowed = [];
-                $('.sheets-filter-popup .f-val-chk:checked').each(function() { allowed.push($(this).val()); });
-                
-                let numOp = $('.sheets-filter-popup .f-num-op').val();
-                let numVal = parseFloat($('.sheets-filter-popup .f-num-val').val());
-                let useNumericCondition = isNumericCol && numOp && numOp !== 'all' && !isNaN(numVal);
-
-                let filtered = globalTroopsData.filter(item => {
-                    let rawVal = getValForCol(item, colIdx);
-                    let strVal = String(rawVal);
-
-                    if (useNumericCondition) {
-                        let numItemVal = parseFloat(rawVal) || 0;
-                        let matchesCondition = false;
-                        if (numOp === 'gt' && numItemVal > numVal) matchesCondition = true;
-                        if (numOp === 'gte' && numItemVal >= numVal) matchesCondition = true;
-                        if (numOp === 'lt' && numItemVal < numVal) matchesCondition = true;
-                        if (numOp === 'lte' && numItemVal <= numVal) matchesCondition = true;
-                        
-                        if (!matchesCondition) return false;
+            checkedBoxes.each(function() {
+                let coords = $(this).attr('data-coords');
+                let foundItem = globalTroopsData.find(i => i.coords === coords);
+                if (foundItem) {
+                    let entryObj = { coords: foundItem.coords, player: foundItem.player || '' };
+                    if (!items.some(i => (typeof i === 'object' ? i.coords : i) === coords)) {
+                        items.push(entryObj);
                     }
-
-                    return allowed.includes(strVal);
-                });
-
-                renderTable(filtered);
-                $('.sheets-filter-popup').remove();
+                }
             });
-        });
 
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('.sheets-filter-popup, .filter-ico').length) {
-                $('.sheets-filter-popup').remove();
-            }
+            localStorage.setItem(storageKey, JSON.stringify(items));
+            alert(`Успешно сохранено элементов (${checkedBoxes.length}) в категорию: ${cat.toUpperCase()}`);
+            $('#save_menu').hide();
         });
     }
 
-    function getValForCol(item, colIdx) {
-        let hasArchers = $('#world_has_archers').is(':checked');
-
-        if (colIdx === 0) return item.player;
-        if (colIdx === 1) return item.coords;
-
-        if (hasArchers) {
-            if (colIdx >= 2 && colIdx <= 13) return item.units[colIdx - 2];
-            if (colIdx === 14) return item.type;
-        } else {
-            let unitMapWithoutArchers = { 2: 0, 3: 1, 4: 2, 5: 4, 6: 5, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11 };
-            if (colIdx >= 2 && colIdx <= 11) {
-                let realUnitIdx = unitMapWithoutArchers[colIdx];
-                return item.units[realUnitIdx] || 0;
-            }
-            if (colIdx === 12) return item.type;
-        }
-        return '';
-    }
-
-    // ==========================================
-    // МОДУЛЬ 7: СТАБИЛЬНОЕ ПЕРЕТАСКИВАНИЕ ОКНА
-    // ==========================================
     function makeDraggable(selector, handleSelector) {
-        let $el = $(selector), $handle = $(handleSelector);
-        let startX = 0, startY = 0, initialX = 0, initialY = 0;
+        let $el = $(selector);
+        let $handle = $(handleSelector);
+        let startX = 0, startY = 0, initialX = 0, initialY = 0, isDragging = false;
 
         $handle.on('mousedown', function(e) {
-            if ($(e.target).is('button, input, a')) return;
-            e.preventDefault();
-            
+            isDragging, isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            
-            let pos = $el.offset();
-            initialX = pos.left;
-            initialY = pos.top;
-            
-            $el.css({
-                left: initialX + 'px',
-                top: initialY + 'px',
-                position: 'fixed',
-                margin: 0
+            initialX = $el.position().left;
+            initialY = $el.position().top;
+
+            $(document).on('mousemove.draggable', function(e) {
+                if (!isDragging) return;
+                let dx = e.clientX - startX;
+                let dy = e.clientY - startY;
+                $el.css({
+                    left: (initialX + dx) + 'px',
+                    top: (initialY + dy) + 'px'
+                });
             });
 
-            $(document).on('mousemove.drag', dragEl);
-            $(document).on('mouseup.drag', stopDrag);
-        });
+            $(document).on('mouseup.draggable', function() {
+                isDragging = false;
+                $(document).off('.draggable');
+            });
 
-        function dragEl(e) {
             e.preventDefault();
-            let dx = e.clientX - startX;
-            let dy = e.clientY - startY;
-            $el.css({
-                left: (initialX + dx) + 'px',
-                top: (initialY + dy) + 'px'
-            });
-        }
-
-        function stopDrag() {
-            $(document).off('mousemove.drag');
-            $(document).off('mouseup.drag');
-        }
+        });
     }
 
-    init();
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        init();
+    } else {
+        $(document).ready(init);
+    }
+
 })();
