@@ -84,7 +84,7 @@
 
                 <!-- Контейнер для всплывающего Google-меню фильтрации -->
                 <div id="g_filter_popup" style="display: none; position: absolute; background: #fff8eb; border: 1px solid #7d510f; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 100050; padding: 10px; width: 240px; border-radius: 3px; font-size: 11px;"></div>
-
+ 
                 <!-- Таблица -->
                 <div id="table_container" style="flex-grow: 1; overflow: auto; background: #fff; position: relative;">
                     <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 11px;" id="troops_table">
