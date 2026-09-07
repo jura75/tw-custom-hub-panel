@@ -69,8 +69,8 @@
 
                     <div style="position: relative; display: inline-block; margin-left: 10px;">
                         <button id="btn_save_dropdown" style="background: #e2c08e; border: 1px solid #7d510f; padding: 4px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; color: #5b3511;">Сохранить выбранное ▼</button>
-                        <div id="save_menu" style="display: none; position: absolute; top: 100%; left: 0; background: #fff8eb; border: 1px solid #7d510f; z-index: 100005; box-shadow: 0 4px 8px rgba(0,0,0,0.2); width: 130px;">
-                            <div class="save-option" data-cat="офф" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold; color: #b22222;">Офф</div>
+                        <div id="save_menu" style="display: none; position: absolute; top: 100%; left: 0; background: #fff8eb; border: 1px solid #7d510f; z-index: 120000; box-shadow: 0 4px 8px rgba(0,0,0,0.2); width: 130px;">
+                            <div class="save-option" data-cat="офф-источник" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold; color: #b22222;">Офф-источник</div>
                             <div class="save-option" data-cat="двор" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Двор</div>
                             <div class="save-option" data-cat="раскатка" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Раскатка</div>
                             <div class="save-option" data-cat="спам" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Спам</div>
@@ -329,7 +329,7 @@
             return item.units[realUnitIdx] || 0;
         }
 
-        // Последняя колонка — тип
+        // Последняя колонка — тип войск
         return item.type;
     }
 
