@@ -371,15 +371,21 @@
             scrollArea.onscroll = () => { cache.scrollLeft = scrollArea.scrollLeft; cache.scrollTop = scrollArea.scrollTop; };
 
             function getVillageColor(v) {
-                if (v.playerName) {
-                    let pLower = v.playerName.toLowerCase();
-                    for (let pName in customPlayerColors) {
-                        if (pLower === pName.toLowerCase()) return customPlayerColors[pName];
-                    }
-                }
-                if (v.tribeTag && cache.tribeColors[v.tribeTag]) return cache.tribeColors[v.tribeTag];
-                return '#888888';
-            }
+    if (v.playerName) {
+        let pLower = v.playerName.toLowerCase();
+        for (let pName in customPlayerColors) {
+            if (pLower === pName.toLowerCase()) return customPlayerColors[pName];
+        }
+    }
+    
+    // Если племени нет — возвращаем бордовый цвет прямо здесь
+    if (!v.tribeTag || v.tribeTag === '' || v.tribeTag === '0') {
+        return '#800000'; 
+    }
+
+    if (v.tribeTag && cache.tribeColors[v.tribeTag]) return cache.tribeColors[v.tribeTag];
+    
+    return '#888888';
 
             function redrawMap() {
                 ctx.fillStyle = '#5e8238';
