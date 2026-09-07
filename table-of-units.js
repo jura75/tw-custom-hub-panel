@@ -72,6 +72,7 @@
                         <div id="save_menu" style="display: none; position: absolute; top: 100%; left: 0; background: #fff8eb; border: 1px solid #7d510f; z-index: 120000; box-shadow: 0 4px 8px rgba(0,0,0,0.2); width: 130px;">
                             <div class="save-option" data-cat="офф-источник" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold; color: #b22222;">Офф-источник</div>
                             <div class="save-option" data-cat="двор-источник" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Двор-источник</div>
+                            <div class="save-option" data-cat="двор-источник" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Двор-источник</div> 
                             <div class="save-option" data-cat="каты-исток" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">каты-исток</div>
                             <div class="save-option" data-cat="спам-источник" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #e3d0b1; font-weight: bold;">Спам-источник</div>
                             <div class="save-option" data-cat="дефф-источник" style="padding: 6px 10px; cursor: pointer; font-weight: bold; color: #00008b;">Дефф-источник</div>
