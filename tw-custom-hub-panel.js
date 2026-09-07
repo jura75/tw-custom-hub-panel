@@ -4,7 +4,7 @@
         existing.remove();
         return;
     }
-
+ 
     let panel = document.createElement('div');
     panel.id = 'tw-custom-hub-panel';
     panel.style.cssText = `
