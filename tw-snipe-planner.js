@@ -70,12 +70,21 @@ javascript:(function(){
         '<div style="flex:1;"><b style="font-size:10px;color:#4a3b2c;">⚔️ Источники оффа:</b><br><textarea id="offsSource" placeholder="513|425..." style="width:100%;height:35px;box-sizing:border-box;font-size:10px;padding:3px;border:1px solid #c7b299;border-radius:3px;background:#fff;"></textarea></div>'+
         '</div>'+
 
-        '<div style="margin-bottom:6px;background:#f3eadb;padding:5px;border-radius:5px;border:1px solid #e3d2bd;">'+
+        '<div style="display:flex;gap:6px;margin-bottom:6px;">'+
+        '<div style="flex:1;background:#f3eadb;padding:5px;border-radius:5px;border:1px solid #e3d2bd;">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">'+
         '<b style="font-size:9px;color:#592c00;">🏰 Промежуточное распределение дворов (Этап 1):</b>'+
         '<button id="copyYardAllocBtn" style="background:#8a4500;color:#fff;border:none;padding:1px 4px;font-size:8px;cursor:pointer;border-radius:2px;font-weight:600;">Копировать</button>'+
         '</div>'+
         '<textarea id="yardAllocExport" style="width:100%;height:35px;font-size:8px;box-sizing:border-box;padding:2px;border:1px solid #c7b299;border-radius:2px;background:#fff;" placeholder="Здесь появится привязка Игрок -> Цель..."></textarea>'+
+        '</div>'+
+        '<div style="flex:1;background:#f3eadb;padding:5px;border-radius:5px;border:1px solid #e3d2bd;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">'+
+        '<b style="font-size:9px;color:#b71c1c;">🚫 Цели, не вошедшие в план (<span id="unplannedCount">0</span>):</b>'+
+        '<button id="copyUnplannedBtn" style="background:#b71c1c;color:#fff;border:none;padding:1px 4px;font-size:8px;cursor:pointer;border-radius:2px;font-weight:600;">Копировать</button>'+
+        '</div>'+
+        '<textarea id="unplannedExport" style="width:100%;height:35px;font-size:8px;box-sizing:border-box;padding:2px;border:1px solid #c7b299;border-radius:2px;background:#fff;" placeholder="Цели без дворов / вне плана..."></textarea>'+
+        '</div>'+
         '</div>'+
 
         '<div style="display:flex;gap:6px;margin-bottom:6px;">'+
@@ -354,9 +363,9 @@ javascript:(function(){
 
     $('#clearCacheBtn').click(function(){
         localStorage.removeItem('twSnipeCache');
-        $('#targetsCoord, #yardsSource, #offsSource, #targetCoordsExport, #jsonBackupArea, #unfitCoordsExport, #reserveOffsExport, #yardAllocExport').val('');
+        $('#targetsCoord, #yardsSource, #offsSource, #targetCoordsExport, #jsonBackupArea, #unfitCoordsExport, #reserveOffsExport, #yardAllocExport, #unplannedExport').val('');
         $('#snipeAttacksPerTarget').val('3'); $('#worldSpeed').val('1.0');
-        $('#unfitCount').text('0'); $('#reserveCount').text('0');
+        $('#unfitCount').text('0'); $('#reserveCount').text('0'); $('#unplannedCount').text('0');
         window.twSavedRoutes = []; window.lastCalculatedRoutes = [];
         updateExportAndUI();
         $('#snipeSt').html('Кеш очищен.');
@@ -377,6 +386,12 @@ javascript:(function(){
     $('#copyYardAllocBtn').click(function(){
         let textarea = document.getElementById('yardAllocExport');
         if(!textarea.value.trim()){ alert('Нет данных распределения дворов'); return; }
+        textarea.select(); try { document.execCommand('copy'); alert('Скопировано!'); } catch(err) {}
+    });
+
+    $('#copyUnplannedBtn').click(function(){
+        let textarea = document.getElementById('unplannedExport');
+        if(!textarea.value.trim()){ alert('Нет целей вне плана'); return; }
         textarea.select(); try { document.execCommand('copy'); alert('Скопировано!'); } catch(err) {}
     });
 
@@ -645,6 +660,7 @@ javascript:(function(){
 
                 let finalRoutes = [];
                 let yardAllocSummary = [];
+                let plannedTargetCoords = new Set();
                 let nowTime = Date.now();
                 let useNoNight = $('#noNightSend').is(':checked');
                 let nStartSec = timeToSec($('#nightStart').val());
@@ -656,10 +672,9 @@ javascript:(function(){
                     return (nStartSec < nEndSec) ? (sendSec >= nStartSec && sendSec <= nEndSec) : (sendSec >= nStartSec || sendSec <= nEndSec);
                 };
 
-                // Структура для промежуточного распределения: Nick -> список назначенных ему целей
                 let assignedTargetsByNick = {};
 
-                // ЭТАП 1: Назначение двора к цели (сопоставление Ник Двора -> Ник Цели или свободный выбор)
+                // ЭТАП 1: Назначение двора к цели
                 targets.forEach(target => {
                     let tOwner = (target.ownerName || game_data.player.name).trim().toLowerCase();
 
@@ -688,6 +703,7 @@ javascript:(function(){
                             assignedTargetsByNick[actualYardOwner] = [];
                         }
                         assignedTargetsByNick[actualYardOwner].push(target);
+                        plannedTargetCoords.add(target.coord);
 
                         yardAllocSummary.push(`[${ySource.ownerName}] Двор ${ySource.coord} ➔ Цель ${target.coord}`);
 
@@ -699,19 +715,20 @@ javascript:(function(){
                     }
                 });
 
-                // Заполняем текстовое поле Этапа 1
+                // Вычисляем и выводим цели, которые НЕ вошли в план (на которые не хватило дворов)
+                let unplannedTargets = targets.filter(t => !plannedTargetCoords.has(t.coord)).map(t => t.coord);
+                $('#unplannedExport').val(unplannedTargets.join('\n'));
+                $('#unplannedCount').text(unplannedTargets.length);
+
                 $('#yardAllocExport').val(yardAllocSummary.join('\n'));
 
-                // ЭТАП 2: Распределение оффа ИСКЛЮЧИТЕЛЬНО по никам из Промежуточного окна (Этапа 1)
-                
-                // Шаг 2А: Сначала каждый владелец Двора из Этапа 1 закрывает СВОИ цели СВОИМИ оффами
+                // ЭТАП 2: Распределение оффа
                 for (let playerNick in assignedTargetsByNick) {
                     let playerTargets = assignedTargetsByNick[playerNick];
 
                     playerTargets.forEach(target => {
                         let neededAttacks = attacksPerTarget;
 
-                        // Ищем оффы, принадлежащие ЭТОМУ ЖЕ ИГРОКУ (playerNick)
                         for (let a = 0; a < neededAttacks; a++) {
                             let bestOffIdx = -1, minOffDst = Infinity;
 
@@ -736,7 +753,6 @@ javascript:(function(){
                     });
                 }
 
-                // Шаг 2Б: Если у какого-то игрока не хватило своих оффов до нормы (attacksPerTarget), добираем ЧУЖИЕ оффы из остатка
                 targets.forEach(target => {
                     let currentAttacks = target.allocatedOffCount || 0;
                     let remainingNeeded = attacksPerTarget - currentAttacks;
@@ -763,7 +779,6 @@ javascript:(function(){
                     }
                 });
 
-                // Все неиспользованные оффы выводятся в глобальный резерв
                 let reserves = offPool.filter(o => !o.used).map(o => o.source.coord);
                 $('#reserveOffsExport').val(reserves.join('\n'));
                 $('#reserveCount').text(reserves.length);
