@@ -19,6 +19,7 @@ javascript:(function(){
     window.lastCalculatedRoutes = cachedData.lastCalculatedRoutes || [];
     let isMobileMode = cachedData.mobileMode !== undefined ? cachedData.mobileMode : false;
     let hasArchers = cachedData.hasArchers !== undefined ? cachedData.hasArchers : false;
+    let calcWithYards = cachedData.calcWithYards !== undefined ? cachedData.calcWithYards : true;
     
     window.twWorldPlayers = window.twWorldPlayers || null;
     window.twWorldVillages = window.twWorldVillages || null;
@@ -45,7 +46,7 @@ javascript:(function(){
 
     p=$('<div>').attr('id','twSnipe').css(getPanelStyles(isMobileMode)).html(
         '<div id="twSnipeHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #e6d8c3;padding-bottom:4px;cursor:move;user-select:none;">'+
-        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик (Двухэтапный Пониковый Расчет) (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
+        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
         '<div style="display:flex;align-items:center;gap:8px;">'+
         '<label style="font-size:10px;color:#592c00;font-weight:bold;cursor:pointer;"><input type="checkbox" id="mobileModeToggle" '+(isMobileMode?'checked':'')+'> 📱 Мобил.</label>'+
         '<span onclick="$(\'#twSnipe\').hide()" style="cursor:pointer;color:#8c7355;font-size:16px;font-weight:bold;padding:0 4px;" title="Закрыть">&times;</span>'+
@@ -135,10 +136,11 @@ javascript:(function(){
         '</div>'+
 
         '<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:8px;background:#ede1cc;padding:5px 8px;border-radius:5px;border:1px solid #d9c7ad;align-items:center;">'+
+        '<div style="display:flex;align-items:center;"><input type="checkbox" id="calcWithYardsToggle" '+(calcWithYards?'checked':'')+ ' style="margin-right:4px;cursor:pointer;"><label for="calcWithYardsToggle" style="font-size:9px;font-weight:700;color:#8a4500;cursor:pointer;">👑 Считать с дворами</label></div>'+
         '<div style="display:flex;align-items:center;"><input type="checkbox" id="worldArchersToggle" '+(hasArchers?'checked':'')+ ' style="margin-right:4px;cursor:pointer;"><label for="worldArchersToggle" style="font-size:9px;font-weight:600;color:#592c00;cursor:pointer;">🏹 Мир с луками</label></div>'+
         '<div style="display:flex;align-items:center;"><input type="checkbox" id="snipeCoordMode" checked style="margin-right:4px;cursor:pointer;"><label for="snipeCoordMode" style="font-size:9px;font-weight:600;color:#592c00;cursor:pointer;">Строго по списку</label></div>'+
         '<div style="display:flex;align-items:center;"><input type="checkbox" id="skipAlreadySavedTargets" checked style="margin-right:4px;cursor:pointer;"><label for="skipAlreadySavedTargets" style="font-size:9px;font-weight:600;color:#592c00;cursor:pointer;">Без дублей целей</label></div>'+
-        '<div style="display:flex;align-items:center;"><input type="checkbox" id="skipAlreadySavedSources" style="margin-right:4px;cursor:pointer;"><label for="skipAlreadySavedSources" style="margin-right:4px;cursor:pointer;"><label for="skipAlreadySavedSources" style="font-size:9px;font-weight:600;color:#592c00;cursor:pointer;">Без дублей источников</label></div>'+
+        '<div style="display:flex;align-items:center;"><input type="checkbox" id="skipAlreadySavedSources" style="margin-right:4px;cursor:pointer;"><label for="skipAlreadySavedSources" style="font-size:9px;font-weight:600;color:#592c00;cursor:pointer;">Без дублей источников</label></div>'+
         '</div>'+
 
         '<div style="display:flex;gap:5px;margin-bottom:6px;">'+
@@ -263,6 +265,11 @@ javascript:(function(){
 
     rebuildDynamicUI();
 
+    $('#calcWithYardsToggle').change(function(){
+        calcWithYards = $(this).is(':checked');
+        saveStateToCache();
+    });
+
     $('#worldArchersToggle').change(function(){
         hasArchers = $(this).is(':checked');
         rebuildDynamicUI();
@@ -349,6 +356,7 @@ javascript:(function(){
             skipAlreadySavedTargets: $('#skipAlreadySavedTargets').is(':checked'), skipAlreadySavedSources: $('#skipAlreadySavedSources').is(':checked'),
             coordMode: $('#snipeCoordMode').is(':checked'),
             mobileMode: $('#mobileModeToggle').is(':checked'), hasArchers: $('#worldArchersToggle').is(':checked'),
+            calcWithYards: $('#calcWithYardsToggle').is(':checked'),
             yardsUnits: collectUnits('y'), offsUnits: collectUnits('o'),
             savedRoutes: window.twSavedRoutes, lastCalculatedRoutes: window.lastCalculatedRoutes
         };
@@ -548,7 +556,8 @@ javascript:(function(){
             
             maxTravelTimeEnabled = $('#maxTravelTimeToggle').is(':checked'),
             maxTravelHours = parseFloat($('#maxTravelHours').val()) || 34,
-            isCoordMode = $('#snipeCoordMode').is(':checked');
+            isCoordMode = $('#snipeCoordMode').is(':checked'),
+            shouldCalcYards = $('#calcWithYardsToggle').is(':checked');
 
         let targets = parseCoordsFromText(targetsCoordText);
 
@@ -571,7 +580,7 @@ javascript:(function(){
         let ySpeedMin = (speeds[yardsUnitKey] || 35) / worldSpeed;
         let oSpeedMin = (speeds[offsUnitKey] || 30) / worldSpeed;
 
-        st.html('Загрузка карты и построение связи Двор -> Ник -> Оффы...');
+        st.html('Загрузка карты и выборка источников...');
 
         fetchWorldDataAndRun(function(playersMap, villagesMap) {
             targets.forEach(t => {
@@ -674,85 +683,100 @@ javascript:(function(){
 
                 let assignedTargetsByNick = {};
 
-                // ЭТАП 1: Назначение двора к цели
-                targets.forEach(target => {
-                    let tOwner = (target.ownerName || game_data.player.name).trim().toLowerCase();
+                // РАСЧЕТ ДВОРОВ (Выполняется, если чекбокс включен)
+                if (shouldCalcYards) {
+                    targets.forEach(target => {
+                        let tOwner = (target.ownerName || game_data.player.name).trim().toLowerCase();
 
-                    let bestYardIdx = -1, minYardDst = Infinity;
-                    yardPool.forEach((y, idx) => {
-                        if (!y.used && y.nick === tOwner) {
-                            let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
-                            if (dist < minYardDst) { minYardDst = dist; bestYardIdx = idx; }
-                        }
-                    });
-                    if (bestYardIdx === -1) {
+                        let bestYardIdx = -1, minYardDst = Infinity;
                         yardPool.forEach((y, idx) => {
-                            if (!y.used) {
+                            if (!y.used && y.nick === tOwner) {
                                 let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
                                 if (dist < minYardDst) { minYardDst = dist; bestYardIdx = idx; }
                             }
                         });
-                    }
-
-                    if (bestYardIdx !== -1) {
-                        yardPool[bestYardIdx].used = true;
-                        let ySource = yardPool[bestYardIdx].source;
-                        let actualYardOwner = (ySource.ownerName || game_data.player.name).trim().toLowerCase();
-
-                        if (!assignedTargetsByNick[actualYardOwner]) {
-                            assignedTargetsByNick[actualYardOwner] = [];
-                        }
-                        assignedTargetsByNick[actualYardOwner].push(target);
-                        plannedTargetCoords.add(target.coord);
-
-                        yardAllocSummary.push(`[${ySource.ownerName}] Двор ${ySource.coord} ➔ Цель ${target.coord}`);
-
-                        let dist = Math.sqrt(Math.pow(ySource.x - target.x, 2) + Math.pow(ySource.y - target.y, 2));
-                        let sendDate = new Date(yardsTargetDate - (dist * ySpeedMin * 60 * 1000));
-                        if (!isNightTime(sendDate) && sendDate.getTime() >= nowTime) {
-                            finalRoutes.push({ source: ySource, target: target, sendDate: sendDate, arrTime: yardsTargetDate, type: yardsAttackType, unit: yardsUnitKey });
-                        }
-                    }
-                });
-
-                // Вычисляем и выводим цели, которые НЕ вошли в план (на которые не хватило дворов)
-                let unplannedTargets = targets.filter(t => !plannedTargetCoords.has(t.coord)).map(t => t.coord);
-                $('#unplannedExport').val(unplannedTargets.join('\n'));
-                $('#unplannedCount').text(unplannedTargets.length);
-
-                $('#yardAllocExport').val(yardAllocSummary.join('\n'));
-
-                // ЭТАП 2: Распределение оффа
-                for (let playerNick in assignedTargetsByNick) {
-                    let playerTargets = assignedTargetsByNick[playerNick];
-
-                    playerTargets.forEach(target => {
-                        let neededAttacks = attacksPerTarget;
-
-                        for (let a = 0; a < neededAttacks; a++) {
-                            let bestOffIdx = -1, minOffDst = Infinity;
-
-                            offPool.forEach((o, idx) => {
-                                if (!o.used && o.nick === playerNick) {
-                                    let dist = Math.sqrt(Math.pow(o.source.x - target.x, 2) + Math.pow(o.source.y - target.y, 2));
-                                    if (dist < minOffDst) { minOffDst = dist; bestOffIdx = idx; }
+                        if (bestYardIdx === -1) {
+                            yardPool.forEach((y, idx) => {
+                                if (!y.used) {
+                                    let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
+                                    if (dist < minYardDst) { minYardDst = dist; bestYardIdx = idx; }
                                 }
                             });
+                        }
 
-                            if (bestOffIdx !== -1) {
-                                offPool[bestOffIdx].used = true;
-                                target.allocatedOffCount = (target.allocatedOffCount || 0) + 1;
-                                let oSource = offPool[bestOffIdx].source;
-                                let dist = Math.sqrt(Math.pow(oSource.x - target.x, 2) + Math.pow(oSource.y - target.y, 2));
-                                let sendDate = new Date(offsTargetDate - (dist * oSpeedMin * 60 * 1000));
-                                if (!isNightTime(sendDate) && sendDate.getTime() >= nowTime) {
-                                    finalRoutes.push({ source: oSource, target: target, sendDate: sendDate, arrTime: offsTargetDate, type: offsType, unit: offsUnitKey });
-                                }
+                        if (bestYardIdx !== -1) {
+                            yardPool[bestYardIdx].used = true;
+                            let ySource = yardPool[bestYardIdx].source;
+                            let actualYardOwner = (ySource.ownerName || game_data.player.name).trim().toLowerCase();
+
+                            if (!assignedTargetsByNick[actualYardOwner]) {
+                                assignedTargetsByNick[actualYardOwner] = [];
+                            }
+                            assignedTargetsByNick[actualYardOwner].push(target);
+                            plannedTargetCoords.add(target.coord);
+
+                            yardAllocSummary.push(`[${ySource.ownerName}] Двор ${ySource.coord} ➔ Цель ${target.coord}`);
+
+                            let dist = Math.sqrt(Math.pow(ySource.x - target.x, 2) + Math.pow(ySource.y - target.y, 2));
+                            let sendDate = new Date(yardsTargetDate - (dist * ySpeedMin * 60 * 1000));
+                            if (!isNightTime(sendDate) && sendDate.getTime() >= nowTime) {
+                                finalRoutes.push({ source: ySource, target: target, sendDate: sendDate, arrTime: yardsTargetDate, type: yardsAttackType, unit: yardsUnitKey });
                             }
                         }
                     });
+
+                    // Исключаем деревни-источники дворов из пула оффов
+                    let usedYardCoords = new Set(yardPool.filter(y => y.used).map(y => y.source.coord));
+                    offPool.forEach(o => {
+                        if (usedYardCoords.has(o.source.coord)) {
+                            o.used = true;
+                        }
+                    });
+
+                    let unplannedTargets = targets.filter(t => !plannedTargetCoords.has(t.coord)).map(t => t.coord);
+                    $('#unplannedExport').val(unplannedTargets.join('\n'));
+                    $('#unplannedCount').text(unplannedTargets.length);
+                    $('#yardAllocExport').val(yardAllocSummary.join('\n'));
+                } else {
+                    $('#yardAllocExport').val('Расчет дворов отключен.');
+                    $('#unplannedExport').val('');
+                    $('#unplannedCount').text('0');
                 }
 
+                // РАСЧЕТ ОФФА
+                if (shouldCalcYards && Object.keys(assignedTargetsByNick).length > 0) {
+                    for (let playerNick in assignedTargetsByNick) {
+                        let playerTargets = assignedTargetsByNick[playerNick];
+
+                        playerTargets.forEach(target => {
+                            let neededAttacks = attacksPerTarget;
+
+                            for (let a = 0; a < neededAttacks; a++) {
+                                let bestOffIdx = -1, minOffDst = Infinity;
+
+                                offPool.forEach((o, idx) => {
+                                    if (!o.used && o.nick === playerNick) {
+                                        let dist = Math.sqrt(Math.pow(o.source.x - target.x, 2) + Math.pow(o.source.y - target.y, 2));
+                                        if (dist < minOffDst) { minOffDst = dist; bestOffIdx = idx; }
+                                    }
+                                });
+
+                                if (bestOffIdx !== -1) {
+                                    offPool[bestOffIdx].used = true;
+                                    target.allocatedOffCount = (target.allocatedOffCount || 0) + 1;
+                                    let oSource = offPool[bestOffIdx].source;
+                                    let dist = Math.sqrt(Math.pow(oSource.x - target.x, 2) + Math.pow(oSource.y - target.y, 2));
+                                    let sendDate = new Date(offsTargetDate - (dist * oSpeedMin * 60 * 1000));
+                                    if (!isNightTime(sendDate) && sendDate.getTime() >= nowTime) {
+                                        finalRoutes.push({ source: oSource, target: target, sendDate: sendDate, arrTime: offsTargetDate, type: offsType, unit: offsUnitKey });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Распределение оставшегося оффа на цели
                 targets.forEach(target => {
                     let currentAttacks = target.allocatedOffCount || 0;
                     let remainingNeeded = attacksPerTarget - currentAttacks;
