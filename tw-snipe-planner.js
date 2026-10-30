@@ -135,6 +135,18 @@ javascript:(function(){
         '<input type="number" id="maxOffsTravelHours" value="34" min="1" max="999" style="width:40px;font-size:9px;text-align:center;padding:1px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
         '</div>'+
         '</div>'+
+        // === ВНЕДРЕННЫЕ БЛОКИ БД (МОРАЛИ) РЯДОМ С ОГРАНИЧЕНИЯМИ ВРЕМЕНИ ===
+        '<div style="display:flex;gap:10px;margin-bottom:4px;border-top:1px dashed #d9c7ad;padding-top:4px;">'+
+        '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;">'+
+        '<div><input type="checkbox" id="minBdYardsToggle" style="margin-right:3px;cursor:pointer;"><label for="minBdYardsToggle" style="font-size:9px;font-weight:600;color:#8a4500;cursor:pointer;" title="Боевой дух / мораль для дворов">Мин. БД % (дворы):</label></div>'+
+        '<input type="number" id="minBdYardsVal" value="50" min="30" max="100" style="width:40px;font-size:9px;text-align:center;padding:1px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
+        '</div>'+
+        '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;">'+
+        '<div><input type="checkbox" id="minBdOffsToggle" style="margin-right:3px;cursor:pointer;"><label for="minBdOffsToggle" style="font-size:9px;font-weight:600;color:#2e7d32;cursor:pointer;" title="Боевой дух / мораль для оффов">Мин. БД % (офф):</label></div>'+
+        '<input type="number" id="minBdOffsVal" value="50" min="30" max="100" style="width:40px;font-size:9px;text-align:center;padding:1px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
+        '</div>'+
+        '</div>'+
+        // ==================================================================
         '<div style="display:flex;align-items:center;gap:4px;font-size:9px;">'+
         '<input type="checkbox" id="noNightSend" checked style="cursor:pointer;"><label for="noNightSend" style="font-weight:600;color:#592c00;cursor:pointer;">Без ночи</label>'+
         '<span>с</span> <input type="text" id="nightStart" value="00:00" style="width:34px;text-align:center;font-size:9px;padding:1px;border:1px solid #c7b299;border-radius:2px;background:#fff;">'+
@@ -187,10 +199,10 @@ javascript:(function(){
         '</div>'+
         '<div style="flex:1;background:#f3eadb;padding:5px;border-radius:5px;border:1px solid #e3d2bd;">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">'+
-        '<b style="font-size:9px;color:#b71c1c;">🚫 Не подошли по времени (<span id="unfitCount">0</span>):</b>'+
+        '<b style="font-size:9px;color:#b71c1c;">🚫 Не подошли по времени/БД (<span id="unfitCount">0</span>):</b>'+
         '<button id="copyUnfitCoordsBtn" style="background:#b71c1c;color:#fff;border:none;padding:1px 4px;font-size:8px;cursor:pointer;border-radius:2px;font-weight:600;">Копировать</button>'+
         '</div>'+
-        '<textarea id="unfitCoordsExport" style="width:100%;height:32px;font-size:8px;box-sizing:border-box;padding:2px;border:1px solid #c7b299;border-radius:2px;background:#fff;" placeholder="Превысившие лимит времени..."></textarea>'+
+        '<textarea id="unfitCoordsExport" style="width:100%;height:32px;font-size:8px;box-sizing:border-box;padding:2px;border:1px solid #c7b299;border-radius:2px;background:#fff;" placeholder="Превысившие лимит времени или низкий БД..."></textarea>'+
         '</div>'+
         '</div>'+
 
@@ -327,6 +339,12 @@ javascript:(function(){
     if(cachedData.maxTravelHours) $('#maxTravelHours').val(cachedData.maxTravelHours);
     if(cachedData.maxOffsTravelTimeToggle !== undefined) $('#maxOffsTravelTimeToggle').prop('checked', cachedData.maxOffsTravelTimeToggle);
     if(cachedData.maxOffsTravelHours) $('#maxOffsTravelHours').val(cachedData.maxOffsTravelHours);
+    // Восстановление значений БД из кеша
+    if(cachedData.minBdYardsToggle !== undefined) $('#minBdYardsToggle').prop('checked', cachedData.minBdYardsToggle);
+    if(cachedData.minBdYardsVal) $('#minBdYardsVal').val(cachedData.minBdYardsVal);
+    if(cachedData.minBdOffsToggle !== undefined) $('#minBdOffsToggle').prop('checked', cachedData.minBdOffsToggle);
+    if(cachedData.minBdOffsVal) $('#minBdOffsVal').val(cachedData.minBdOffsVal);
+
     if(cachedData.noNightSend !== undefined) $('#noNightSend').prop('checked', cachedData.noNightSend);
     if(cachedData.nightStart) $('#nightStart').val(cachedData.nightStart);
     if(cachedData.nightEnd) $('#nightEnd').val(cachedData.nightEnd);
@@ -355,6 +373,8 @@ javascript:(function(){
             worldSpeed: $('#worldSpeed').val(), attacksPerTarget: $('#snipeAttacksPerTarget').val(),
             maxTravelTimeToggle: $('#maxTravelTimeToggle').is(':checked'), maxTravelHours: $('#maxTravelHours').val(),
             maxOffsTravelTimeToggle: $('#maxOffsTravelTimeToggle').is(':checked'), maxOffsTravelHours: $('#maxOffsTravelHours').val(),
+            minBdYardsToggle: $('#minBdYardsToggle').is(':checked'), minBdYardsVal: $('#minBdYardsVal').val(),
+            minBdOffsToggle: $('#minBdOffsToggle').is(':checked'), minBdOffsVal: $('#minBdOffsVal').val(),
             noNightSend: $('#noNightSend').is(':checked'), nightStart: $('#nightStart').val(), nightEnd: $('#nightEnd').val(),
             skipAlreadySavedSources: $('#skipAlreadySavedSources').is(':checked'), coordMode: $('#snipeCoordMode').is(':checked'),
             uniqueTargetsToggle: $('#uniqueTargetsToggle').is(':checked'),
@@ -525,9 +545,18 @@ javascript:(function(){
         return parseInt(p[0], 10)*3600 + parseInt(p[1], 10)*60 + (p[2] ? parseInt(p[2], 10) : 0);
     }
 
+    // ФУНКЦИЯ РАСЧЕТА БОЕВОГО ДУХА (БД / МОРАЛИ)
+    function calculateMorale(attackerPoints, defenderPoints) {
+        if (!attackerPoints || attackerPoints <= 0 || !defenderPoints || defenderPoints <= 0) return 100;
+        let morale = (125 * (defenderPoints / attackerPoints)) + 30;
+        if (morale > 100) morale = 100;
+        if (morale < 50) morale = 50;
+        return Math.round(morale);
+    }
+
     function fetchWorldDataAndRun(callback) {
-        if (window.twWorldPlayers && window.twWorldVillages) {
-            callback(window.twWorldPlayers, window.twWorldVillages);
+        if (window.twWorldPlayers && window.twWorldVillages && window.twWorldPlayerPoints) {
+            callback(window.twWorldPlayers, window.twWorldVillages, window.twWorldPlayerPoints);
             return;
         }
         let mapBaseUrl = window.location.origin + '/map/';
@@ -536,14 +565,28 @@ javascript:(function(){
             $.get(mapBaseUrl + 'village.txt').catch(() => ({responseText: ''}))
         ).done(function(playerRes, villageRes) {
             let playersMap = {};
+            let playerPointsMap = {};
             (playerRes[0] || '').split('\n').forEach(line => {
                 if(!line.trim()) return;
                 let parts = line.split(',');
-                if(parts.length >= 2) {
-                    try { playersMap[parts[0].trim()] = decodeURIComponent(parts[1].replace(/\+/g, ' ')); }
-                    catch(e) { playersMap[parts[0].trim()] = parts[1].replace(/\+/g, ' '); }
+                if(parts.length >= 5) {
+                    let pId = parts[0].trim();
+                    let pName = parts[1];
+                    let pPts = parseInt(parts[4], 10) || 0;
+                    try { pName = decodeURIComponent(pName.replace(/\+/g, ' ')); }
+                    catch(e) { pName = pName.replace(/\+/g, ' '); }
+                    playersMap[pId] = pName;
+                    playerPointsMap[pId] = pPts;
+                } else if(parts.length >= 2) {
+                    let pId = parts[0].trim();
+                    let pName = parts[1];
+                    try { pName = decodeURIComponent(pName.replace(/\+/g, ' ')); }
+                    catch(e) { pName = pName.replace(/\+/g, ' '); }
+                    playersMap[pId] = pName;
+                    playerPointsMap[pId] = 0;
                 }
             });
+
             let villagesMap = {};
             (villageRes[0] || '').split('\n').forEach(line => {
                 if(!line.trim()) return;
@@ -552,12 +595,21 @@ javascript:(function(){
                     let vX = parseInt(parts[2], 10), vY = parseInt(parts[3], 10);
                     let ownerId = parts[4].trim();
                     let vName = parts[1];
+                    let vPoints = parseInt(parts[5], 10) || 0;
                     try { vName = decodeURIComponent(vName.replace(/\+/g, ' ')); } catch(e){}
-                    villagesMap[vX + '|' + vY] = { id: parts[0].trim(), ownerName: playersMap[ownerId] || game_data.player.name, villageName: vName };
+                    villagesMap[vX + '|' + vY] = { 
+                        id: parts[0].trim(), 
+                        ownerId: ownerId,
+                        ownerName: playersMap[ownerId] || game_data.player.name, 
+                        villageName: vName,
+                        points: vPoints
+                    };
                 }
             });
-            window.twWorldPlayers = playersMap; window.twWorldVillages = villagesMap;
-            callback(playersMap, villagesMap);
+            window.twWorldPlayers = playersMap; 
+            window.twWorldVillages = villagesMap;
+            window.twWorldPlayerPoints = playerPointsMap;
+            callback(playersMap, villagesMap, playerPointsMap);
         });
     }
 
@@ -571,6 +623,8 @@ javascript:(function(){
             yardsUnitKey=$('#yardsUnit').val(), yardsAttackType=$('#yardsType').val(),
             maxTravelTimeEnabled = $('#maxTravelTimeToggle').is(':checked'),
             maxTravelHours = parseFloat($('#maxTravelHours').val()) || 34,
+            minBdYardsEnabled = $('#minBdYardsToggle').is(':checked'),
+            minBdYardsVal = parseFloat($('#minBdYardsVal').val()) || 50,
             isCoordMode = $('#snipeCoordMode').is(':checked'),
             skipSavedSources = $('#skipAlreadySavedSources').is(':checked'),
             uniqueTargetsEnabled = $('#uniqueTargetsToggle').is(':checked');
@@ -599,13 +653,29 @@ javascript:(function(){
         let ySpeedMin = (speeds[yardsUnitKey] || 35) / worldSpeed;
         st.html('Загрузка карты и расчет дворов...');
 
-        fetchWorldDataAndRun(function(playersMap, villagesMap) {
+        fetchWorldDataAndRun(function(playersMap, villagesMap, playerPointsMap) {
+            // Находим очки игрока-атакующего (текущего игрока)
+            let myPlayerId = game_data.player.id;
+            let myPlayerPoints = playerPointsMap[myPlayerId] || 0;
+            if (!myPlayerPoints) {
+                // Если нет в мапе, соберём сумму очков деревень игрока
+                myPlayerPoints = 0;
+                Object.values(villagesMap).forEach(v => {
+                    if (v.ownerId === myPlayerId) myPlayerPoints += v.points;
+                });
+                if (myPlayerPoints === 0) myPlayerPoints = 10000; // запасной дефолт
+            }
+
             targets.forEach(t => {
                 if (villagesMap[t.coord]) {
-                    t.name = villagesMap[t.coord].villageName;
-                    t.ownerName = villagesMap[t.coord].ownerName;
+                    let vInf = villagesMap[t.coord];
+                    t.name = vInf.villageName;
+                    t.ownerName = vInf.ownerName;
+                    t.ownerId = vInf.ownerId;
+                    t.defenderPoints = playerPointsMap[vInf.ownerId] || vInf.points * 10; // оценка очков защитника
                 } else {
                     t.ownerName = game_data.player.name;
+                    t.defenderPoints = 5000;
                 }
             });
 
@@ -677,6 +747,16 @@ javascript:(function(){
                 };
 
                 targets.forEach(target => {
+                    // Проверка на минимальный боевой дух (БД)
+                    if (minBdYardsEnabled) {
+                        let defPts = target.defenderPoints || 5000;
+                        let currentBd = calculateMorale(myPlayerPoints, defPts);
+                        if (currentBd < minBdYardsVal) {
+                            // Пропускаем цель из-за низкого БД
+                            return;
+                        }
+                    }
+
                     let tOwner = (target.ownerName || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' ');
                     let bestYardIdx = -1, minYardDst = Infinity;
                     
@@ -811,6 +891,8 @@ javascript:(function(){
             offsUnitKey=$('#offsUnit').val(), offsType=$('#offsType').val(),
             maxOffsTravelTimeEnabled = $('#maxOffsTravelTimeToggle').is(':checked'),
             maxOffsTravelHours = parseFloat($('#maxOffsTravelHours').val()) || 34,
+            minBdOffsEnabled = $('#minBdOffsToggle').is(':checked'),
+            minBdOffsVal = parseFloat($('#minBdOffsVal').val()) || 50,
             isCoordMode = $('#snipeCoordMode').is(':checked'),
             skipSavedSources = $('#skipAlreadySavedSources').is(':checked'),
             uniqueTargetsEnabled = $('#uniqueTargetsToggle').is(':checked');
@@ -852,13 +934,32 @@ javascript:(function(){
         let oSpeedMin = (speeds[offsUnitKey] || 30) / worldSpeed;
         st.html('Загрузка карты и привязка оффов...');
 
-        fetchWorldDataAndRun(function(playersMap, villagesMap) {
-            if (!withYards) {
-                targetRows.forEach(row => {
-                    if (villagesMap[row.targetCoord]) {
-                        row.nick = villagesMap[row.targetCoord].ownerName;
-                    }
+        fetchWorldDataAndRun(function(playersMap, villagesMap, playerPointsMap) {
+            let myPlayerId = game_data.player.id;
+            let myPlayerPoints = playerPointsMap[myPlayerId] || 10000;
+
+            targetRows.forEach(row => {
+                if (villagesMap[row.targetCoord]) {
+                    let vInf = villagesMap[row.targetCoord];
+                    row.nick = vInf.ownerName;
+                    row.defenderPoints = playerPointsMap[vInf.ownerId] || vInf.points * 10;
+                } else {
+                    row.defenderPoints = 5000;
+                }
+            });
+
+            // Фильтрация целей по БД для оффов, если включено
+            if (minBdOffsEnabled) {
+                targetRows = targetRows.filter(row => {
+                    let defPts = row.defenderPoints || 5000;
+                    let currentBd = calculateMorale(myPlayerPoints, defPts);
+                    return currentBd >= minBdOffsVal;
                 });
+            }
+
+            if (targetRows.length === 0) {
+                st.html('<span style="color:red;">Все цели отсеяны из-за минимального порога боевого духа (БД)!</span>');
+                return;
             }
 
             let allowedOffsCoords = parseCoordsFromText(offsSourceText);
