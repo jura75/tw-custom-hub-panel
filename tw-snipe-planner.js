@@ -47,7 +47,7 @@ javascript:(function(){
 
     p=$('<div>').attr('id','twSnipe').css(getPanelStyles(isMobileMode)).html(
         '<div id="twSnipeHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #e6d8c3;padding-bottom:4px;cursor:move;user-select:none;">'+
-        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.22 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
+        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.24 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
         '<div style="display:flex;align-items:center;gap:8px;">'+
         '<label style="font-size:10px;color:#592c00;font-weight:bold;cursor:pointer;"><input type="checkbox" id="mobileModeToggle" '+(isMobileMode?'checked':'')+'> 📱 Мобил.</label>'+
         '<span onclick="$(\'#twSnipe\').hide()" style="cursor:pointer;color:#8c7355;font-size:16px;font-weight:bold;padding:0 4px;" title="Закрыть">&times;</span>'+
@@ -561,7 +561,7 @@ javascript:(function(){
         });
     }
 
-    // ЭТАП 1: РАСПРЕДЕЛЕНИЕ ДВОРОВ (С ИСПРАВЛЕННОЙ ЖЕСТКОЙ ПРОВЕРКОЙ ЛИМИТА ЧАСОВ)
+    // ЭТАП 1: РАСПРЕДЕЛЕНИЕ ДВОРОВ
     $('#calcYardsBtn').click(function(){
         let st=$('#snipeSt'),
             targetsCoordText=$('#targetsCoord').val(),
@@ -572,11 +572,22 @@ javascript:(function(){
             maxTravelTimeEnabled = $('#maxTravelTimeToggle').is(':checked'),
             maxTravelHours = parseFloat($('#maxTravelHours').val()) || 34,
             isCoordMode = $('#snipeCoordMode').is(':checked'),
-            skipSavedSources = $('#skipAlreadySavedSources').is(':checked');
+            skipSavedSources = $('#skipAlreadySavedSources').is(':checked'),
+            uniqueTargetsEnabled = $('#uniqueTargetsToggle').is(':checked');
 
         let targets = parseCoordsFromText(targetsCoordText);
         if(targets.length === 0){
             st.html('<span style="color:red;">Введите цели для расчета дворов!</span>');
+            return;
+        }
+
+        if (uniqueTargetsEnabled && window.twSavedRoutes && window.twSavedRoutes.length > 0) {
+            let savedTargetSet = new Set(window.twSavedRoutes.map(r => r.targetCoord));
+            targets = targets.filter(t => !savedTargetSet.has(t.coord));
+        }
+
+        if(targets.length === 0){
+            st.html('<span style="color:red;">Все указанные цели уже присутствуют в сохраненном плане!</span>');
             return;
         }
 
@@ -632,25 +643,17 @@ javascript:(function(){
                 let maxTravelMin = maxTravelHours * 60;
                 let unfitSources = [], activeYards = [];
 
-                // ЖЕСТКАЯ ПРОВЕРКА ЛИМИТА ВРЕМЕНИ ПУТИ ДЛЯ ДВОРОВ
                 validYardsSources.forEach(v => {
                     let fits = false;
                     if (!maxTravelTimeEnabled) {
                         fits = true;
                     } else {
-                        // Источник подходит, если хотя бы до одной цели он идет в пределах лимита часов
                         targets.forEach(t => {
                             let travelMin = Math.sqrt(Math.pow(v.x - t.x, 2) + Math.pow(v.y - t.y, 2)) * ySpeedMin;
-                            if (travelMin <= maxTravelMin) {
-                                fits = true;
-                            }
+                            if (travelMin <= maxTravelMin) { fits = true; }
                         });
                     }
-                    if (fits) {
-                        activeYards.push(v);
-                    } else {
-                        unfitSources.push(v);
-                    }
+                    if (fits) { activeYards.push(v); } else { unfitSources.push(v); }
                 });
 
                 let unfitCoordsList = Array.from(new Set(unfitSources.map(s => s.coord)));
@@ -809,7 +812,8 @@ javascript:(function(){
             maxOffsTravelTimeEnabled = $('#maxOffsTravelTimeToggle').is(':checked'),
             maxOffsTravelHours = parseFloat($('#maxOffsTravelHours').val()) || 34,
             isCoordMode = $('#snipeCoordMode').is(':checked'),
-            skipSavedSources = $('#skipAlreadySavedSources').is(':checked');
+            skipSavedSources = $('#skipAlreadySavedSources').is(':checked'),
+            uniqueTargetsEnabled = $('#uniqueTargetsToggle').is(':checked');
 
         let targetRows = [];
 
@@ -828,6 +832,16 @@ javascript:(function(){
                 return;
             }
             targetRows = rawTargets.map(t => ({ nick: game_data.player.name, targetCoord: t.coord, x: t.x, y: t.y }));
+        }
+
+        if (uniqueTargetsEnabled && window.twSavedRoutes && window.twSavedRoutes.length > 0) {
+            let savedTargetSet = new Set(window.twSavedRoutes.map(r => r.targetCoord));
+            targetRows = targetRows.filter(r => !savedTargetSet.has(r.targetCoord));
+        }
+
+        if(targetRows.length === 0){
+            st.html('<span style="color:red;">Все выбранные цели уже присутствуют в сохраненном плане!</span>');
+            return;
         }
 
         let [od, om, oyy] = oDateStr.split('.').map(Number);
