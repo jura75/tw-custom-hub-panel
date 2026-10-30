@@ -47,7 +47,7 @@ javascript:(function(){
 
     p=$('<div>').attr('id','twSnipe').css(getPanelStyles(isMobileMode)).html(
         '<div id="twSnipeHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #e6d8c3;padding-bottom:4px;cursor:move;user-select:none;">'+
-        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.21 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
+        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.22 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
         '<div style="display:flex;align-items:center;gap:8px;">'+
         '<label style="font-size:10px;color:#592c00;font-weight:bold;cursor:pointer;"><input type="checkbox" id="mobileModeToggle" '+(isMobileMode?'checked':'')+'> 📱 Мобил.</label>'+
         '<span onclick="$(\'#twSnipe\').hide()" style="cursor:pointer;color:#8c7355;font-size:16px;font-weight:bold;padding:0 4px;" title="Закрыть">&times;</span>'+
@@ -561,7 +561,7 @@ javascript:(function(){
         });
     }
 
-    // ЭТАП 1: РАСПРЕДЕЛЕНИЕ ДВОРОВ
+    // ЭТАП 1: РАСПРЕДЕЛЕНИЕ ДВОРОВ (С ИСПРАВЛЕННОЙ ЖЕСТКОЙ ПРОВЕРКОЙ ЛИМИТА ЧАСОВ)
     $('#calcYardsBtn').click(function(){
         let st=$('#snipeSt'),
             targetsCoordText=$('#targetsCoord').val(),
@@ -632,14 +632,25 @@ javascript:(function(){
                 let maxTravelMin = maxTravelHours * 60;
                 let unfitSources = [], activeYards = [];
 
+                // ЖЕСТКАЯ ПРОВЕРКА ЛИМИТА ВРЕМЕНИ ПУТИ ДЛЯ ДВОРОВ
                 validYardsSources.forEach(v => {
-                    let fits = !maxTravelTimeEnabled;
-                    if (maxTravelTimeEnabled) {
+                    let fits = false;
+                    if (!maxTravelTimeEnabled) {
+                        fits = true;
+                    } else {
+                        // Источник подходит, если хотя бы до одной цели он идет в пределах лимита часов
                         targets.forEach(t => {
-                            if (Math.sqrt(Math.pow(v.x-t.x,2)+Math.pow(v.y-t.y,2)) * ySpeedMin <= maxTravelMin) fits = true;
+                            let travelMin = Math.sqrt(Math.pow(v.x - t.x, 2) + Math.pow(v.y - t.y, 2)) * ySpeedMin;
+                            if (travelMin <= maxTravelMin) {
+                                fits = true;
+                            }
                         });
                     }
-                    if (fits) activeYards.push(v); else unfitSources.push(v);
+                    if (fits) {
+                        activeYards.push(v);
+                    } else {
+                        unfitSources.push(v);
+                    }
                 });
 
                 let unfitCoordsList = Array.from(new Set(unfitSources.map(s => s.coord)));
@@ -669,7 +680,10 @@ javascript:(function(){
                     yardPool.forEach((y, idx) => {
                         if (!y.used && y.nick === tOwner) {
                             let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
-                            if (dist < minYardDst) { minYardDst = dist; bestYardIdx = idx; }
+                            let travelMin = dist * ySpeedMin;
+                            if ((!maxTravelTimeEnabled || travelMin <= maxTravelMin) && dist < minYardDst) {
+                                minYardDst = dist; bestYardIdx = idx;
+                            }
                         }
                     });
 
@@ -677,7 +691,10 @@ javascript:(function(){
                         yardPool.forEach((y, idx) => {
                             if (!y.used) {
                                 let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
-                                if (dist < minYardDst) { minYardDst = dist; bestYardIdx = idx; }
+                                let travelMin = dist * ySpeedMin;
+                                if ((!maxTravelTimeEnabled || travelMin <= maxTravelMin) && dist < minYardDst) {
+                                    minYardDst = dist; bestYardIdx = idx;
+                                }
                             }
                         });
                     }
@@ -780,7 +797,7 @@ javascript:(function(){
         });
     });
 
-    // ЭТАП 2: РАСПРЕДЕЛЕНИЕ ОФФОВ (ЗАВИСИТ ОТ ЧЕКБОКСА С ДВОРАМИ)
+    // ЭТАП 2: РАСПРЕДЕЛЕНИЕ ОФФОВ
     $('#calcOffsBtn').click(function(){
         let st=$('#snipeSt'),
             withYards = $('#calcWithYardsToggle').is(':checked'),
@@ -797,7 +814,6 @@ javascript:(function(){
         let targetRows = [];
 
         if (withYards) {
-            // Если галочка «С дворами» стоит -> берем из окна распределения дворов
             let allocText = $('#yardAllocExport').val();
             targetRows = parseYardAllocFromText(allocText);
             if(targetRows.length === 0){
@@ -805,14 +821,12 @@ javascript:(function(){
                 return;
             }
         } else {
-            // Если галочка «С дворами» снята -> берем из общего списка целей
             let targetsCoordText = $('#targetsCoord').val();
             let rawTargets = parseCoordsFromText(targetsCoordText);
             if(rawTargets.length === 0){
                 st.html('<span style="color:red;">Введите цели в поле "Цели (общий список)"!</span>');
                 return;
             }
-            // Формируем формат для распределения оффа по никам из источников оффа
             targetRows = rawTargets.map(t => ({ nick: game_data.player.name, targetCoord: t.coord, x: t.x, y: t.y }));
         }
 
@@ -825,7 +839,6 @@ javascript:(function(){
         st.html('Загрузка карты и привязка оффов...');
 
         fetchWorldDataAndRun(function(playersMap, villagesMap) {
-            // Если галочка "С дворами" не стоит, подгружаем владельцев целей из мира, если они указаны в деревнях
             if (!withYards) {
                 targetRows.forEach(row => {
                     if (villagesMap[row.targetCoord]) {
