@@ -378,7 +378,6 @@
                     }
                 }
                 
-                // Если племени нет — возвращаем бордовый цвет
                 if (!v.tribeTag || v.tribeTag === '' || v.tribeTag === '0') {
                     return '#800000'; 
                 }
@@ -386,7 +385,7 @@
                 if (v.tribeTag && cache.tribeColors[v.tribeTag]) return cache.tribeColors[v.tribeTag];
                 
                 return '#888888';
-            } // <--- Закрывающая скобка была пропущена в вашем исходнике
+            }
 
             function redrawMap() {
                 ctx.fillStyle = '#5e8238';
@@ -664,6 +663,7 @@
             };
 
         } else if (tabId === '4') {
+            // === ИСПРАВЛЕННАЯ ВКЛАДКА 4 (С РАБОЧИМ И ПЛАВНЫМ ФИЛЬТРОМ ОЧКОВ) ===
             container.innerHTML = `
                 <div style="padding: 10px; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; background: #fff8eb;">
                     <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px; background: #f5e8cd; padding: 6px; border: 1px solid #c5a059; border-radius: 3px; flex-wrap: wrap; position: relative;">
@@ -679,8 +679,8 @@
                         <select id="hub_filter_type" style="font-size: 10px; padding: 3px; border: 1px solid #c5a059; border-radius: 2px; background: #fff; max-width: 100px;">
                             <option value="">Все типы</option>
                         </select>
-                        <input type="text" id="hub_filter_min_pts" placeholder="Мин. очки" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px;">
-                        <input type="text" id="hub_filter_max_pts" placeholder="Макс. очки" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px;">
+                        <input type="text" id="hub_filter_min_pts" placeholder="Мин. очки" value="${localStorage.getItem('tw_hub_filter_min_pts') || ''}" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px; background: #fff;">
+                        <input type="text" id="hub_filter_max_pts" placeholder="Макс. очки" value="${localStorage.getItem('tw_hub_filter_max_pts') || ''}" style="font-size: 10px; padding: 3px; width: 65px; border: 1px solid #c5a059; border-radius: 2px; background: #fff;">
                         
                         <div style="position: relative; display: inline-block;">
                             <button id="hub_db_btn_save_cfg" style="background: #e2c08e; border: 1px solid #7d510f; font-weight: bold; padding: 3px 6px; cursor: pointer; border-radius: 2px; font-size: 10px; color: #5b3511;">Сохранить ▼</button>
@@ -771,16 +771,26 @@
                 let selTribe = document.getElementById('hub_filter_tribe').value;
                 let selQuad = document.getElementById('hub_filter_quad').value;
                 let selType = document.getElementById('hub_filter_type').value;
-                let minPts = parseInt(document.getElementById('hub_filter_min_pts').value) || 0;
-                let maxPts = parseInt(document.getElementById('hub_filter_max_pts').value) || 9999999;
+
+                let minInputVal = document.getElementById('hub_filter_min_pts').value.trim();
+                let maxInputVal = document.getElementById('hub_filter_max_pts').value.trim();
+                
+                localStorage.setItem('tw_hub_filter_min_pts', minInputVal);
+                localStorage.setItem('tw_hub_filter_max_pts', maxInputVal);
+
+                let minPts = minInputVal === '' ? null : parseInt(minInputVal, 10);
+                let maxPts = maxInputVal === '' ? null : parseInt(maxInputVal, 10);
 
                 let filtered = db.filter(item => {
-                    let ptsVal = parseInt(String(item.points).replace(/,/g, '')) || 0;
+                    let ptsVal = parseInt(String(item.points || '0').replace(/\D/g, ''), 10) || 0;
                     if (selPlayer && item.player !== selPlayer) return false;
                     if (selTribe && item.tribe !== selTribe) return false;
                     if (selQuad && getQuadrant(item.coord) !== selQuad) return false;
                     if (selType && getVillageType(item.name) !== selType) return false;
-                    if (ptsVal < minPts || ptsVal > maxPts) return false;
+                    
+                    if (minPts !== null && !isNaN(minPts) && ptsVal < minPts) return false;
+                    if (maxPts !== null && !isNaN(maxPts) && ptsVal > maxPts) return false;
+                    
                     return true;
                 });
 
@@ -820,10 +830,17 @@
 
             renderDBTable();
 
-            ['hub_filter_player', 'hub_filter_tribe', 'hub_filter_quad', 'hub_filter_type', 'hub_filter_min_pts', 'hub_filter_max_pts'].forEach(id => {
+            ['hub_filter_player', 'hub_filter_tribe', 'hub_filter_quad', 'hub_filter_type'].forEach(id => {
                 let el = document.getElementById(id);
-                if (el) el.oninput = renderDBTable;
                 if (el) el.onchange = renderDBTable;
+            });
+
+            ['hub_filter_min_pts', 'hub_filter_max_pts'].forEach(id => {
+                let el = document.getElementById(id);
+                if (el) {
+                    el.oninput = renderDBTable;
+                    el.onkeyup = renderDBTable;
+                }
             });
 
             let chkAll = document.getElementById('hub_db_chk_all');
