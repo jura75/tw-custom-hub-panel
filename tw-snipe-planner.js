@@ -1,4 +1,22 @@
-javascript:(function(){
+// ==UserScript==
+// @name         Tribal Wars Multi-Planner with Server Time Offset
+// @namespace    https://www.innogames.com/
+// @version      9.25
+// @match        https://*.tribalwars.net/game.php*
+// @match        https://*.voynamisli.ru/game.php*
+// @match        https://*.plemiona.pl/game.php*
+// @match        https://*.vojnaplemion.cz/game.php*
+// @match        https://*.divokekmeny.sk/game.php*
+// @match        https://*.haborukornei.hu/game.php*
+// @match        https://*.tribalwars.com.es/game.php*
+// @match        https://*.tribalwars.com.pt/game.php*
+// @match        https://*.tribalwars.com.br/game.php*
+// @match        https://*.tribalwars.fr/game.php*
+// @match        https://*.tw.kanalmuka.com/game.php*
+// @grant        none
+// ==/UserScript==
+
+(function(){
     if(typeof game_data==='undefined'||(game_data.screen!=='overview_villages')){
         alert("Откройте 'Обзор деревень' (вкладка Войска)");
         return;
@@ -21,6 +39,7 @@ javascript:(function(){
     let hasArchers = cachedData.hasArchers !== undefined ? cachedData.hasArchers : false;
     let calcWithYards = cachedData.calcWithYards !== undefined ? cachedData.calcWithYards : true;
     let calcWithOffs = cachedData.calcWithOffs !== undefined ? cachedData.calcWithOffs : true;
+    let timeOffsetHours = cachedData.timeOffsetHours !== undefined ? parseFloat(cachedData.timeOffsetHours) : 0;
     
     window.twWorldPlayers = window.twWorldPlayers || null;
     window.twWorldVillages = window.twWorldVillages || null;
@@ -47,13 +66,25 @@ javascript:(function(){
 
     p=$('<div>').attr('id','twSnipe').css(getPanelStyles(isMobileMode)).html(
         '<div id="twSnipeHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #e6d8c3;padding-bottom:4px;cursor:move;user-select:none;">'+
-        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.24 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
+        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.25 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
         '<div style="display:flex;align-items:center;gap:8px;">'+
         '<label style="font-size:10px;color:#592c00;font-weight:bold;cursor:pointer;"><input type="checkbox" id="mobileModeToggle" '+(isMobileMode?'checked':'')+'> 📱 Мобил.</label>'+
         '<span onclick="$(\'#twSnipe\').hide()" style="cursor:pointer;color:#8c7355;font-size:16px;font-weight:bold;padding:0 4px;" title="Закрыть">&times;</span>'+
         '</div>'+
         '</div>'+
         
+        // --- БЛОК ОТОБРАЖЕНИЯ И КОРРЕКЦИИ ВРЕМЕНИ СЕРВЕРА ---
+        '<div style="display:flex;justify-content:space-between;align-items:center;background:#f3eadb;padding:5px 8px;border-radius:5px;border:1px solid #e3d2bd;margin-bottom:6px;">'+
+        '<div style="font-size:10px;color:#592c00;font-weight:600;">🕒 Время сервера: <span id="serverClockDisplay" style="font-weight:bold;color:#b22222;font-family:monospace;font-size:11px;">00:00:00</span></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;">'+
+        '<label for="timeOffsetInput" style="font-size:9px;font-weight:600;color:#592c00;" title="Коррекция разницы времени с ПК (часов):">Коррекция (ч):</label>'+
+        '<button id="offsetMinus" style="background:#8a4500;color:#fff;border:none;width:18px;height:18px;font-size:10px;cursor:pointer;border-radius:3px;font-weight:bold;display:flex;align-items:center;justify-content:center;">-</button>'+
+        '<input type="number" id="timeOffsetInput" value="'+timeOffsetHours+'" min="-12" max="12" step="1" style="width:36px;font-size:10px;text-align:center;padding:1px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
+        '<button id="offsetPlus" style="background:#8a4500;color:#fff;border:none;width:18px;height:18px;font-size:10px;cursor:pointer;border-radius:3px;font-weight:bold;display:flex;align-items:center;justify-content:center;">+</button>'+
+        '</div>'+
+        '</div>'+
+        // -----------------------------------------------------
+
         '<div class="row-speed-attacks" style="display:flex;gap:6px;margin-bottom:6px;">'+
         '<div style="flex:1;display:flex;justify-content:space-between;align-items:center;background:#f3eadb;padding:5px 6px;border-radius:5px;border:1px solid #e3d2bd;">'+
         '<label for="worldSpeed" style="font-size:10px;font-weight:600;color:#592c00;">Скорость:</label>'+
@@ -135,7 +166,7 @@ javascript:(function(){
         '<input type="number" id="maxOffsTravelHours" value="34" min="1" max="999" style="width:40px;font-size:9px;text-align:center;padding:1px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
         '</div>'+
         '</div>'+
-        // === ВНЕДРЕННЫЕ БЛОКИ БД (МОРАЛИ) РЯДОМ С ОГРАНИЧЕНИЯМИ ВРЕМЕНИ ===
+        
         '<div style="display:flex;gap:10px;margin-bottom:4px;border-top:1px dashed #d9c7ad;padding-top:4px;">'+
         '<div style="flex:1;display:flex;align-items:center;justify-content:space-between;">'+
         '<div><input type="checkbox" id="minBdYardsToggle" style="margin-right:3px;cursor:pointer;"><label for="minBdYardsToggle" style="font-size:9px;font-weight:600;color:#8a4500;cursor:pointer;" title="Боевой дух / мораль для дворов">Мин. БД % (дворы):</label></div>'+
@@ -146,7 +177,7 @@ javascript:(function(){
         '<input type="number" id="minBdOffsVal" value="50" min="30" max="100" style="width:40px;font-size:9px;text-align:center;padding:1px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
         '</div>'+
         '</div>'+
-        // ==================================================================
+        
         '<div style="display:flex;align-items:center;gap:4px;font-size:9px;">'+
         '<input type="checkbox" id="noNightSend" checked style="cursor:pointer;"><label for="noNightSend" style="font-weight:600;color:#592c00;cursor:pointer;">Без ночи</label>'+
         '<span>с</span> <input type="text" id="nightStart" value="00:00" style="width:34px;text-align:center;font-size:9px;padding:1px;border:1px solid #c7b299;border-radius:2px;background:#fff;">'+
@@ -228,6 +259,31 @@ javascript:(function(){
         '</div>'
     );
     $('body').append(p);
+
+    // --- ФУНКЦИЯ ДИНАМИЧЕСКИХ ЧАСОВ С УЧЕТОМ СМЕЩЕНИЯ ---
+    function updateServerClock() {
+        let offsetH = parseFloat($('#timeOffsetInput').val()) || 0;
+        let now = new Date();
+        // Корректируем миллисекунды на смещение в часах
+        let adjustedTime = new Date(now.getTime() + (offsetH * 3600000));
+        let hh = String(adjustedTime.getUTCHours()).padStart(2, '0');
+        let mm = String(adjustedTime.getUTCMinutes()).padStart(2, '0');
+        let ss = String(adjustedTime.getUTCSeconds()).padStart(2, '0');
+        $('#serverClockDisplay').text(hh + ':' + mm + ':' + ss);
+    }
+    setInterval(updateServerClock, 1000);
+    updateServerClock();
+
+    // Обработка кнопок плюс/минус для смещения времени
+    $('#offsetPlus').click(function(){
+        let val = parseFloat($('#timeOffsetInput').val()) || 0;
+        if(val < 12) { $('#timeOffsetInput').val(val + 1).trigger('change'); }
+    });
+    $('#offsetMinus').click(function(){
+        let val = parseFloat($('#timeOffsetInput').val()) || 0;
+        if(val > -12) { $('#timeOffsetInput').val(val - 1).trigger('change'); }
+    });
+    // -----------------------------------------------------
 
     let unitsConfigWithoutArchers = [
         {key: 'spear', name: 'Копье (18 мин)', short: 'Коп', speed: 18},
@@ -339,12 +395,10 @@ javascript:(function(){
     if(cachedData.maxTravelHours) $('#maxTravelHours').val(cachedData.maxTravelHours);
     if(cachedData.maxOffsTravelTimeToggle !== undefined) $('#maxOffsTravelTimeToggle').prop('checked', cachedData.maxOffsTravelTimeToggle);
     if(cachedData.maxOffsTravelHours) $('#maxOffsTravelHours').val(cachedData.maxOffsTravelHours);
-    // Восстановление значений БД из кеша
     if(cachedData.minBdYardsToggle !== undefined) $('#minBdYardsToggle').prop('checked', cachedData.minBdYardsToggle);
     if(cachedData.minBdYardsVal) $('#minBdYardsVal').val(cachedData.minBdYardsVal);
     if(cachedData.minBdOffsToggle !== undefined) $('#minBdOffsToggle').prop('checked', cachedData.minBdOffsToggle);
     if(cachedData.minBdOffsVal) $('#minBdOffsVal').val(cachedData.minBdOffsVal);
-
     if(cachedData.noNightSend !== undefined) $('#noNightSend').prop('checked', cachedData.noNightSend);
     if(cachedData.nightStart) $('#nightStart').val(cachedData.nightStart);
     if(cachedData.nightEnd) $('#nightEnd').val(cachedData.nightEnd);
@@ -380,6 +434,7 @@ javascript:(function(){
             uniqueTargetsToggle: $('#uniqueTargetsToggle').is(':checked'),
             mobileMode: $('#mobileModeToggle').is(':checked'), hasArchers: $('#worldArchersToggle').is(':checked'),
             calcWithYards: $('#calcWithYardsToggle').is(':checked'), calcWithOffs: $('#calcWithOffsToggle').is(':checked'),
+            timeOffsetHours: $('#timeOffsetInput').val(),
             yardsUnits: collectUnits('y'), offsUnits: collectUnits('o'),
             savedRoutes: window.twSavedRoutes, lastCalculatedRoutes: window.lastCalculatedRoutes
         };
@@ -395,7 +450,7 @@ javascript:(function(){
     $('#clearCacheBtn').click(function(){
         localStorage.removeItem('twSnipeCache');
         $('#targetsCoord, #yardsSource, #offsSource, #targetCoordsExport, #jsonBackupArea, #unfitCoordsExport, #reserveOffsExport, #yardAllocExport, #unplannedExport').val('');
-        $('#snipeAttacksPerTarget').val('3'); $('#worldSpeed').val('1.0');
+        $('#snipeAttacksPerTarget').val('3'); $('#worldSpeed').val('1.0'); $('#timeOffsetInput').val('0');
         $('#unfitCount').text('0'); $('#reserveCount').text('0'); $('#unplannedCount').text('0');
         window.twSavedRoutes = []; window.lastCalculatedRoutes = [];
         updateExportAndUI();
@@ -545,7 +600,6 @@ javascript:(function(){
         return parseInt(p[0], 10)*3600 + parseInt(p[1], 10)*60 + (p[2] ? parseInt(p[2], 10) : 0);
     }
 
-    // ФУНКЦИЯ РАСЧЕТА БОЕВОГО ДУХА (БД / МОРАЛИ)
     function calculateMorale(attackerPoints, defenderPoints) {
         if (!attackerPoints || attackerPoints <= 0 || !defenderPoints || defenderPoints <= 0) return 100;
         let morale = (125 * (defenderPoints / attackerPoints)) + 30;
@@ -613,6 +667,18 @@ javascript:(function(){
         });
     }
 
+    // Вспомогательная функция для учёта смещения времени сервера во всех расчётах
+    function getOffsetCorrectedTimestamp(dateStr, timeStr) {
+        let [d, m, y] = dateStr.split('.').map(Number);
+        let [th, tm, ts] = timeStr.split(':').map(Number);
+        let targetYear = (y < 100 ? y + 2000 : y);
+        
+        let offsetHours = parseFloat($('#timeOffsetInput').val()) || 0;
+        // Создаем дату по UTC, отнимая часовое смещение, чтобы расчеты сходились со временем сервера игры
+        let utcMillis = Date.UTC(targetYear, m - 1, d, th - offsetHours, tm || 0, ts || 0);
+        return utcMillis;
+    }
+
     // ЭТАП 1: РАСПРЕДЕЛЕНИЕ ДВОРОВ
     $('#calcYardsBtn').click(function(){
         let st=$('#snipeSt'),
@@ -645,25 +711,21 @@ javascript:(function(){
             return;
         }
 
-        let [yd, ym, yyy] = yDateStr.split('.').map(Number);
-        let [yth, ytm, yts] = yTimeStr.split(':').map(Number);
-        let yardsTargetDate = new Date(yyy < 100 ? yyy + 2000 : yyy, ym - 1, yd, yth, ytm, yts).getTime();
+        let yardsTargetDate = getOffsetCorrectedTimestamp(yDateStr, yTimeStr);
         if(isNaN(yardsTargetDate)){ yardsTargetDate = Date.now() + 3600000; }
 
         let ySpeedMin = (speeds[yardsUnitKey] || 35) / worldSpeed;
         st.html('Загрузка карты и расчет дворов...');
 
         fetchWorldDataAndRun(function(playersMap, villagesMap, playerPointsMap) {
-            // Находим очки игрока-атакующего (текущего игрока)
             let myPlayerId = game_data.player.id;
             let myPlayerPoints = playerPointsMap[myPlayerId] || 0;
             if (!myPlayerPoints) {
-                // Если нет в мапе, соберём сумму очков деревень игрока
                 myPlayerPoints = 0;
                 Object.values(villagesMap).forEach(v => {
                     if (v.ownerId === myPlayerId) myPlayerPoints += v.points;
                 });
-                if (myPlayerPoints === 0) myPlayerPoints = 10000; // запасной дефолт
+                if (myPlayerPoints === 0) myPlayerPoints = 10000;
             }
 
             targets.forEach(t => {
@@ -672,7 +734,7 @@ javascript:(function(){
                     t.name = vInf.villageName;
                     t.ownerName = vInf.ownerName;
                     t.ownerId = vInf.ownerId;
-                    t.defenderPoints = playerPointsMap[vInf.ownerId] || vInf.points * 10; // оценка очков защитника
+                    t.defenderPoints = playerPointsMap[vInf.ownerId] || vInf.points * 10;
                 } else {
                     t.ownerName = game_data.player.name;
                     t.defenderPoints = 5000;
@@ -742,19 +804,15 @@ javascript:(function(){
 
                 let isNightTime = (sendDate) => {
                     if (!useNoNight) return false;
-                    let sendSec = sendDate.getHours() * 3600 + sendDate.getMinutes() * 60 + sendDate.getSeconds();
+                    let sendSec = sendDate.getUTCHours() * 3600 + sendDate.getUTCMinutes() * 60 + sendDate.getUTCSeconds();
                     return (nStartSec < nEndSec) ? (sendSec >= nStartSec && sendSec <= nEndSec) : (sendSec >= nStartSec || sendSec <= nEndSec);
                 };
 
                 targets.forEach(target => {
-                    // Проверка на минимальный боевой дух (БД)
                     if (minBdYardsEnabled) {
                         let defPts = target.defenderPoints || 5000;
                         let currentBd = calculateMorale(myPlayerPoints, defPts);
-                        if (currentBd < minBdYardsVal) {
-                            // Пропускаем цель из-за низкого БД
-                            return;
-                        }
+                        if (currentBd < minBdYardsVal) return;
                     }
 
                     let tOwner = (target.ownerName || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' ');
@@ -805,11 +863,17 @@ javascript:(function(){
                 finalRoutes.sort((a,b)=>a.sendDate-b.sendDate);
                 window.lastCalculatedRoutes = [];
 
+                let offsetHours = parseFloat($('#timeOffsetInput').val()) || 0;
+
                 finalRoutes.forEach(item=>{
                     let v=item.source, tCoord=item.targetCoord;
                     let sd=item.sendDate, ad=new Date(item.arrTime);
-                    let sendTimeStr=('0'+sd.getDate()).slice(-2)+'.'+('0'+(sd.getMonth()+1)).slice(-2)+'.'+sd.getFullYear()+' '+('0'+sd.getHours()).slice(-2)+':'+('0'+sd.getMinutes()).slice(-2)+':'+('0'+sd.getSeconds()).slice(-2);
-                    let arrTimeStr=('0'+ad.getDate()).slice(-2)+'.'+('0'+(ad.getMonth()+1)).slice(-2)+'.'+ad.getFullYear()+' '+('0'+ad.getHours()).slice(-2)+':'+('0'+ad.getMinutes()).slice(-2)+':'+('0'+ad.getSeconds()).slice(-2);
+                    
+                    let adjSend = new Date(sd.getTime() + (offsetHours * 3600000));
+                    let adjArr = new Date(ad.getTime() + (offsetHours * 3600000));
+
+                    let sendTimeStr=('0'+adjSend.getUTCDate()).slice(-2)+'.'+('0'+(adjSend.getUTCMonth()+1)).slice(-2)+'.'+adjSend.getUTCFullYear()+' '+('0'+adjSend.getUTCHours()).slice(-2)+':'+('0'+adjSend.getUTCMinutes()).slice(-2)+':'+('0'+adjSend.getUTCSeconds()).slice(-2);
+                    let arrTimeStr=('0'+adjArr.getUTCDate()).slice(-2)+'.'+('0'+(adjArr.getUTCMonth()+1)).slice(-2)+'.'+adjArr.getUTCFullYear()+' '+('0'+adjArr.getUTCHours()).slice(-2)+':'+('0'+adjArr.getUTCMinutes()).slice(-2)+':'+('0'+adjArr.getUTCSeconds()).slice(-2);
                     
                     let villageId = v.id || (villagesMap[v.coord] ? villagesMap[v.coord].id : '');
                     let tParts = tCoord.split('|');
@@ -926,9 +990,7 @@ javascript:(function(){
             return;
         }
 
-        let [od, om, oyy] = oDateStr.split('.').map(Number);
-        let [oth, otm, ots] = oTimeStr.split(':').map(Number);
-        let offsTargetDate = new Date(oyy < 100 ? oyy + 2000 : oyy, om - 1, od, oth, oth ? oth : 0, ots).getTime();
+        let offsTargetDate = getOffsetCorrectedTimestamp(oDateStr, oTimeStr);
         if(isNaN(offsTargetDate)){ offsTargetDate = Date.now() + 3600000; }
 
         let oSpeedMin = (speeds[offsUnitKey] || 30) / worldSpeed;
@@ -948,7 +1010,6 @@ javascript:(function(){
                 }
             });
 
-            // Фильтрация целей по БД для оффов, если включено
             if (minBdOffsEnabled) {
                 targetRows = targetRows.filter(row => {
                     let defPts = row.defenderPoints || 5000;
@@ -1020,7 +1081,7 @@ javascript:(function(){
 
                 let isNightTime = (sendDate) => {
                     if (!useNoNight) return false;
-                    let sendSec = sendDate.getHours() * 3600 + sendDate.getMinutes() * 60 + sendDate.getSeconds();
+                    let sendSec = sendDate.getUTCHours() * 3600 + sendDate.getUTCMinutes() * 60 + sendDate.getUTCSeconds();
                     return (nStartSec < nEndSec) ? (sendSec >= nStartSec && sendSec <= nEndSec) : (sendSec >= nStartSec || sendSec <= nEndSec);
                 };
 
@@ -1067,11 +1128,17 @@ javascript:(function(){
                 finalRoutes.sort((a,b)=>a.sendDate-b.sendDate);
                 window.lastCalculatedRoutes = [];
 
+                let offsetHours = parseFloat($('#timeOffsetInput').val()) || 0;
+
                 finalRoutes.forEach(item=>{
                     let v=item.source;
                     let sd=item.sendDate, ad=new Date(item.arrTime);
-                    let sendTimeStr=('0'+sd.getDate()).slice(-2)+'.'+('0'+(sd.getMonth()+1)).slice(-2)+'.'+sd.getFullYear()+' '+('0'+sd.getHours()).slice(-2)+':'+('0'+sd.getMinutes()).slice(-2)+':'+('0'+sd.getSeconds()).slice(-2);
-                    let arrTimeStr=('0'+ad.getDate()).slice(-2)+'.'+('0'+(ad.getMonth()+1)).slice(-2)+'.'+ad.getFullYear()+' '+('0'+ad.getHours()).slice(-2)+':'+('0'+ad.getMinutes()).slice(-2)+':'+('0'+ad.getSeconds()).slice(-2);
+                    
+                    let adjSend = new Date(sd.getTime() + (offsetHours * 3600000));
+                    let adjArr = new Date(ad.getTime() + (offsetHours * 3600000));
+
+                    let sendTimeStr=('0'+adjSend.getUTCDate()).slice(-2)+'.'+('0'+(adjSend.getUTCMonth()+1)).slice(-2)+'.'+adjSend.getUTCFullYear()+' '+('0'+adjSend.getUTCHours()).slice(-2)+':'+('0'+adjSend.getUTCMinutes()).slice(-2)+':'+('0'+adjSend.getUTCSeconds()).slice(-2);
+                    let arrTimeStr=('0'+adjArr.getUTCDate()).slice(-2)+'.'+('0'+(adjArr.getUTCMonth()+1)).slice(-2)+'.'+adjArr.getUTCFullYear()+' '+('0'+adjArr.getUTCHours()).slice(-2)+':'+('0'+adjArr.getUTCMinutes()).slice(-2)+':'+('0'+adjArr.getUTCSeconds()).slice(-2);
                     
                     let villageId = v.id || (villagesMap[v.coord] ? villagesMap[v.coord].id : '');
                     let tParts = item.targetCoord.split('|');
