@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Tribal Wars Multi-Planner with Server Time Offset
+// @name         Tribal Wars Multi-Planner with Server Time Offset & Fixed Offs
 // @namespace    https://www.innogames.com/
-// @version      9.25
+// @version      9.26
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.voynamisli.ru/game.php*
 // @match        https://*.plemiona.pl/game.php*
@@ -66,7 +66,7 @@
 
     p=$('<div>').attr('id','twSnipe').css(getPanelStyles(isMobileMode)).html(
         '<div id="twSnipeHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #e6d8c3;padding-bottom:4px;cursor:move;user-select:none;">'+
-        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.25 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
+        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.26 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
         '<div style="display:flex;align-items:center;gap:8px;">'+
         '<label style="font-size:10px;color:#592c00;font-weight:bold;cursor:pointer;"><input type="checkbox" id="mobileModeToggle" '+(isMobileMode?'checked':'')+'> 📱 Мобил.</label>'+
         '<span onclick="$(\'#twSnipe\').hide()" style="cursor:pointer;color:#8c7355;font-size:16px;font-weight:bold;padding:0 4px;" title="Закрыть">&times;</span>'+
@@ -260,11 +260,9 @@
     );
     $('body').append(p);
 
-    // --- ФУНКЦИЯ ДИНАМИЧЕСКИХ ЧАСОВ С УЧЕТОМ СМЕЩЕНИЯ ---
     function updateServerClock() {
         let offsetH = parseFloat($('#timeOffsetInput').val()) || 0;
         let now = new Date();
-        // Корректируем миллисекунды на смещение в часах
         let adjustedTime = new Date(now.getTime() + (offsetH * 3600000));
         let hh = String(adjustedTime.getUTCHours()).padStart(2, '0');
         let mm = String(adjustedTime.getUTCMinutes()).padStart(2, '0');
@@ -274,7 +272,6 @@
     setInterval(updateServerClock, 1000);
     updateServerClock();
 
-    // Обработка кнопок плюс/минус для смещения времени
     $('#offsetPlus').click(function(){
         let val = parseFloat($('#timeOffsetInput').val()) || 0;
         if(val < 12) { $('#timeOffsetInput').val(val + 1).trigger('change'); }
@@ -283,7 +280,6 @@
         let val = parseFloat($('#timeOffsetInput').val()) || 0;
         if(val > -12) { $('#timeOffsetInput').val(val - 1).trigger('change'); }
     });
-    // -----------------------------------------------------
 
     let unitsConfigWithoutArchers = [
         {key: 'spear', name: 'Копье (18 мин)', short: 'Коп', speed: 18},
@@ -581,7 +577,7 @@
             if (coordMatch && coordMatch.length >= 1) {
                 let targetCoord = coordMatch[coordMatch.length - 1];
                 let nickMatch = line.match(/\[([^\]]+)\]/);
-                let nick = nickMatch ? nickMatch[1] : "Неизвестен";
+                let nick = nickMatch ? nickMatch[1] : game_data.player.name;
                 let tParts = targetCoord.split('|');
                 rows.push({
                     nick: nick.trim(),
@@ -667,14 +663,11 @@
         });
     }
 
-    // Вспомогательная функция для учёта смещения времени сервера во всех расчётах
     function getOffsetCorrectedTimestamp(dateStr, timeStr) {
         let [d, m, y] = dateStr.split('.').map(Number);
         let [th, tm, ts] = timeStr.split(':').map(Number);
         let targetYear = (y < 100 ? y + 2000 : y);
-        
         let offsetHours = parseFloat($('#timeOffsetInput').val()) || 0;
-        // Создаем дату по UTC, отнимая часовое смещение, чтобы расчеты сходились со временем сервера игры
         let utcMillis = Date.UTC(targetYear, m - 1, d, th - offsetHours, tm || 0, ts || 0);
         return utcMillis;
     }
@@ -944,7 +937,7 @@
         });
     });
 
-    // ЭТАП 2: РАСПРЕДЕЛЕНИЕ ОФФОВ
+    // ЭТАП 2: РАСПРЕДЕЛЕНИЕ ОФФОВ (ИСПРАВЛЕНО СОПОСТАВЛЕНИЕ НИКОВ ИСТОЧНИКОВ)
     $('#calcOffsBtn').click(function(){
         let st=$('#snipeSt'),
             withYards = $('#calcWithYardsToggle').is(':checked'),
@@ -1003,7 +996,6 @@
             targetRows.forEach(row => {
                 if (villagesMap[row.targetCoord]) {
                     let vInf = villagesMap[row.targetCoord];
-                    row.nick = vInf.ownerName;
                     row.defenderPoints = playerPointsMap[vInf.ownerId] || vInf.points * 10;
                 } else {
                     row.defenderPoints = 5000;
@@ -1088,11 +1080,12 @@
                 targetRows.forEach(row => {
                     let targetX = row.x;
                     let targetY = row.y;
-                    let rowOwnerClean = row.nick.trim().toLowerCase().replace(/\s+/g, ' ');
+                    let rowOwnerClean = (row.nick || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' ');
 
                     for (let a = 0; a < attacksPerTarget; a++) {
                         let bestOffIdx = -1, minOffDst = Infinity;
 
+                        // Сначала ищем свободный офф с точно таким же ником владельца (своего же игрока/мульта)
                         offPool.forEach((o, idx) => {
                             if (!o.used && o.nick === rowOwnerClean) {
                                 let dist = Math.sqrt(Math.pow(o.source.x - targetX, 2) + Math.pow(o.source.y - targetY, 2));
@@ -1100,6 +1093,7 @@
                             }
                         });
 
+                        // Если строгого совпадения по нику нет, берем ближайший доступный офф из общего пула
                         if (bestOffIdx === -1) {
                             offPool.forEach((o, idx) => {
                                 if (!o.used) {
