@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tribal Wars Multi-Planner with Server Time Offset & Fixed Offs
 // @namespace    https://www.innogames.com/
-// @version      9.26
+// @version      9.27
 // @match        https://*.tribalwars.net/game.php*
 // @match        https://*.voynamisli.ru/game.php*
 // @match        https://*.plemiona.pl/game.php*
@@ -66,7 +66,7 @@
 
     p=$('<div>').attr('id','twSnipe').css(getPanelStyles(isMobileMode)).html(
         '<div id="twSnipeHeader" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-bottom:2px solid #e6d8c3;padding-bottom:4px;cursor:move;user-select:none;">'+
-        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.26 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
+        '<h3 style="margin:0;color:#6b3400;font-size:13px;font-weight:700;">⚔️ Мульти-Планировщик v9.27 (<span id="modeTitleLbl">'+(isMobileMode?'МОБИЛЬНЫЙ':'PRO')+'</span>)</h3>'+
         '<div style="display:flex;align-items:center;gap:8px;">'+
         '<label style="font-size:10px;color:#592c00;font-weight:bold;cursor:pointer;"><input type="checkbox" id="mobileModeToggle" '+(isMobileMode?'checked':'')+'> 📱 Мобил.</label>'+
         '<span onclick="$(\'#twSnipe\').hide()" style="cursor:pointer;color:#8c7355;font-size:16px;font-weight:bold;padding:0 4px;" title="Закрыть">&times;</span>'+
@@ -88,11 +88,15 @@
         '<div class="row-speed-attacks" style="display:flex;gap:6px;margin-bottom:6px;">'+
         '<div style="flex:1;display:flex;justify-content:space-between;align-items:center;background:#f3eadb;padding:5px 6px;border-radius:5px;border:1px solid #e3d2bd;">'+
         '<label for="worldSpeed" style="font-size:10px;font-weight:600;color:#592c00;">Скорость:</label>'+
-        '<input type="number" id="worldSpeed" value="1.0" min="0.1" max="10" step="0.1" style="width:45px;font-size:10px;text-align:center;padding:2px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
+        '<input type="number" id="worldSpeed" value="1.0" min="0.1" max="10" step="0.1" style="width:40px;font-size:10px;text-align:center;padding:2px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
         '</div>'+
         '<div style="flex:1;display:flex;justify-content:space-between;align-items:center;background:#f3eadb;padding:5px 6px;border-radius:5px;border:1px solid #e3d2bd;">'+
-        '<label for="snipeAttacksPerTarget" style="font-size:10px;font-weight:600;color:#592c00;">Атак оффа на цель:</label>'+
-        '<input type="number" id="snipeAttacksPerTarget" value="3" min="1" max="50" style="width:40px;font-size:10px;text-align:center;padding:2px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
+        '<label for="snipeAttacksPerTarget" style="font-size:10px;font-weight:600;color:#592c00;">Атак на цель:</label>'+
+        '<input type="number" id="snipeAttacksPerTarget" value="3" min="1" max="50" style="width:35px;font-size:10px;text-align:center;padding:2px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
+        '</div>'+
+        '<div style="flex:1;display:flex;justify-content:space-between;align-items:center;background:#f3eadb;padding:5px 6px;border-radius:5px;border:1px solid #e3d2bd;">'+
+        '<label for="maxAttacksPerSource" style="font-size:10px;font-weight:600;color:#592c00;" title="Максимальное количество атак с одного источника">Атак с источника:</label>'+
+        '<input type="number" id="maxAttacksPerSource" value="1" min="1" max="50" style="width:35px;font-size:10px;text-align:center;padding:2px;border:1px solid #c7b299;border-radius:3px;background:#fff;">'+
         '</div>'+
         '</div>'+
 
@@ -387,6 +391,7 @@
     if(cachedData.offsType) $('#offsType').val(cachedData.offsType);
     if(cachedData.worldSpeed) $('#worldSpeed').val(cachedData.worldSpeed);
     if(cachedData.attacksPerTarget !== undefined) $('#snipeAttacksPerTarget').val(cachedData.attacksPerTarget);
+    if(cachedData.maxAttacksPerSource !== undefined) $('#maxAttacksPerSource').val(cachedData.maxAttacksPerSource);
     if(cachedData.maxTravelTimeToggle !== undefined) $('#maxTravelTimeToggle').prop('checked', cachedData.maxTravelTimeToggle);
     if(cachedData.maxTravelHours) $('#maxTravelHours').val(cachedData.maxTravelHours);
     if(cachedData.maxOffsTravelTimeToggle !== undefined) $('#maxOffsTravelTimeToggle').prop('checked', cachedData.maxOffsTravelTimeToggle);
@@ -421,6 +426,7 @@
             yardsUnit: $('#yardsUnit').val(), yardsType: $('#yardsType').val(),
             offsUnit: $('#offsUnit').val(), offsType: $('#offsType').val(),
             worldSpeed: $('#worldSpeed').val(), attacksPerTarget: $('#snipeAttacksPerTarget').val(),
+            maxAttacksPerSource: $('#maxAttacksPerSource').val(),
             maxTravelTimeToggle: $('#maxTravelTimeToggle').is(':checked'), maxTravelHours: $('#maxTravelHours').val(),
             maxOffsTravelTimeToggle: $('#maxOffsTravelTimeToggle').is(':checked'), maxOffsTravelHours: $('#maxOffsTravelHours').val(),
             minBdYardsToggle: $('#minBdYardsToggle').is(':checked'), minBdYardsVal: $('#minBdYardsVal').val(),
@@ -446,7 +452,7 @@
     $('#clearCacheBtn').click(function(){
         localStorage.removeItem('twSnipeCache');
         $('#targetsCoord, #yardsSource, #offsSource, #targetCoordsExport, #jsonBackupArea, #unfitCoordsExport, #reserveOffsExport, #yardAllocExport, #unplannedExport').val('');
-        $('#snipeAttacksPerTarget').val('3'); $('#worldSpeed').val('1.0'); $('#timeOffsetInput').val('0');
+        $('#snipeAttacksPerTarget').val('3'); $('#maxAttacksPerSource').val('1'); $('#worldSpeed').val('1.0'); $('#timeOffsetInput').val('0');
         $('#unfitCount').text('0'); $('#reserveCount').text('0'); $('#unplannedCount').text('0');
         window.twSavedRoutes = []; window.lastCalculatedRoutes = [];
         updateExportAndUI();
@@ -785,7 +791,7 @@
                 $('#unfitCoordsExport').val(unfitCoordsList.join('\n'));
                 $('#unfitCount').text(unfitCoordsList.length);
 
-                let yardPool = activeYards.map(y => ({ source: y, nick: (y.ownerName || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' '), used: false }));
+                let yardPool = activeYards.map(y => ({ source: y, nick: (y.ownerName || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' '), used: 0, maxAllowed: 1 }));
 
                 let finalRoutes = [];
                 let yardAllocSummary = [];
@@ -812,7 +818,7 @@
                     let bestYardIdx = -1, minYardDst = Infinity;
                     
                     yardPool.forEach((y, idx) => {
-                        if (!y.used && y.nick === tOwner) {
+                        if (y.used < y.maxAllowed && y.nick === tOwner) {
                             let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
                             let travelMin = dist * ySpeedMin;
                             if ((!maxTravelTimeEnabled || travelMin <= maxTravelMin) && dist < minYardDst) {
@@ -823,7 +829,7 @@
 
                     if (bestYardIdx === -1) {
                         yardPool.forEach((y, idx) => {
-                            if (!y.used) {
+                            if (y.used < y.maxAllowed) {
                                 let dist = Math.sqrt(Math.pow(y.source.x - target.x, 2) + Math.pow(y.source.y - target.y, 2));
                                 let travelMin = dist * ySpeedMin;
                                 if ((!maxTravelTimeEnabled || travelMin <= maxTravelMin) && dist < minYardDst) {
@@ -834,7 +840,7 @@
                     }
 
                     if (bestYardIdx !== -1) {
-                        yardPool[bestYardIdx].used = true;
+                        yardPool[bestYardIdx].used++;
                         let ySource = yardPool[bestYardIdx].source;
 
                         plannedTargetCoords.add(target.coord);
@@ -937,13 +943,14 @@
         });
     });
 
-    // ЭТАП 2: РАСПРЕДЕЛЕНИЕ ОФФОВ (ИСПРАВЛЕНО СОПОСТАВЛЕНИЕ НИКОВ ИСТОЧНИКОВ)
+    // ЭТАП 2: РАСПРЕДЕЛЕНИЕ ОФФОВ (СТРОГО СВОИ ЦЕЛИ ЗАКРЫВАЮТСЯ СВОИМИ ОФФАМИ, ЛИМИТЫ АТАК УЧТЕНЫ)
     $('#calcOffsBtn').click(function(){
         let st=$('#snipeSt'),
             withYards = $('#calcWithYardsToggle').is(':checked'),
             offsSourceText=$('#offsSource').val(),
             worldSpeed = parseFloat($('#worldSpeed').val()) || 1.0,
             attacksPerTarget = parseInt($('#snipeAttacksPerTarget').val(), 10) || 3,
+            maxAttacksPerSource = parseInt($('#maxAttacksPerSource').val(), 10) || 1,
             oTimeStr=$('#offsTime').val().trim(), oDateStr=$('#offsDate').val().trim(),
             offsUnitKey=$('#offsUnit').val(), offsType=$('#offsType').val(),
             maxOffsTravelTimeEnabled = $('#maxOffsTravelTimeToggle').is(':checked'),
@@ -1063,7 +1070,7 @@
                 $('#unfitCoordsExport').val(unfitCoordsList.join('\n'));
                 $('#unfitCount').text(unfitCoordsList.length);
 
-                let offPool = activeOffs.map(o => ({ source: o, nick: (o.ownerName || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' '), used: false }));
+                let offPool = activeOffs.map(o => ({ source: o, nick: (o.ownerName || game_data.player.name).trim().toLowerCase().replace(/\s+/g, ' '), used: 0, maxAllowed: maxAttacksPerSource }));
 
                 let finalRoutes = [];
                 let nowTime = Date.now();
@@ -1077,6 +1084,7 @@
                     return (nStartSec < nEndSec) ? (sendSec >= nStartSec && sendSec <= nEndSec) : (sendSec >= nStartSec || sendSec <= nEndSec);
                 };
 
+                // ЭТАП 2.1: Сначала распределяем СВОИ оффы (строго по нику владельца цели)
                 targetRows.forEach(row => {
                     let targetX = row.x;
                     let targetY = row.y;
@@ -1085,26 +1093,18 @@
                     for (let a = 0; a < attacksPerTarget; a++) {
                         let bestOffIdx = -1, minOffDst = Infinity;
 
-                        // Сначала ищем свободный офф с точно таким же ником владельца (своего же игрока/мульта)
                         offPool.forEach((o, idx) => {
-                            if (!o.used && o.nick === rowOwnerClean) {
+                            if (o.used < o.maxAllowed && o.nick === rowOwnerClean) {
                                 let dist = Math.sqrt(Math.pow(o.source.x - targetX, 2) + Math.pow(o.source.y - targetY, 2));
-                                if (dist < minOffDst) { minOffDst = dist; bestOffIdx = idx; }
+                                let travelMin = dist * oSpeedMin;
+                                if ((!maxOffsTravelTimeEnabled || travelMin <= maxOffsTravelMin) && dist < minOffDst) {
+                                    minOffDst = dist; bestOffIdx = idx;
+                                }
                             }
                         });
 
-                        // Если строгого совпадения по нику нет, берем ближайший доступный офф из общего пула
-                        if (bestOffIdx === -1) {
-                            offPool.forEach((o, idx) => {
-                                if (!o.used) {
-                                    let dist = Math.sqrt(Math.pow(o.source.x - targetX, 2) + Math.pow(o.source.y - targetY, 2));
-                                    if (dist < minOffDst) { minOffDst = dist; bestOffIdx = idx; }
-                                }
-                            });
-                        }
-
                         if (bestOffIdx !== -1) {
-                            offPool[bestOffIdx].used = true;
+                            offPool[bestOffIdx].used++;
                             let oSource = offPool[bestOffIdx].source;
                             let dist = Math.sqrt(Math.pow(oSource.x - targetX, 2) + Math.pow(oSource.y - targetY, 2));
                             let sendDate = new Date(offsTargetDate - (dist * oSpeedMin * 60 * 1000));
@@ -1115,7 +1115,43 @@
                     }
                 });
 
-                let reserves = offPool.filter(o => !o.used).map(o => o.source.coord);
+                // ЭТАП 2.2: Если на какую-то цель атак не хватило (свои кончились), добираем из резерва (остальных доступных оффов)
+                targetRows.forEach(row => {
+                    let targetX = row.x;
+                    let targetY = row.y;
+
+                    // Считаем, сколько уже привязано оффов к этой конкретной цели
+                    let currentAttacksForTarget = finalRoutes.filter(r => r.targetCoord === row.targetCoord).length;
+
+                    while (currentAttacksForTarget < attacksPerTarget) {
+                        let bestOffIdx = -1, minOffDst = Infinity;
+
+                        offPool.forEach((o, idx) => {
+                            if (o.used < o.maxAllowed) {
+                                let dist = Math.sqrt(Math.pow(o.source.x - targetX, 2) + Math.pow(o.source.y - targetY, 2));
+                                let travelMin = dist * oSpeedMin;
+                                if ((!maxOffsTravelTimeEnabled || travelMin <= maxOffsTravelMin) && dist < minOffDst) {
+                                    minOffDst = dist; bestOffIdx = idx;
+                                }
+                            }
+                        });
+
+                        if (bestOffIdx !== -1) {
+                            offPool[bestOffIdx].used++;
+                            let oSource = offPool[bestOffIdx].source;
+                            let dist = Math.sqrt(Math.pow(oSource.x - targetX, 2) + Math.pow(oSource.y - targetY, 2));
+                            let sendDate = new Date(offsTargetDate - (dist * oSpeedMin * 60 * 1000));
+                            if (!isNightTime(sendDate) && sendDate.getTime() >= nowTime) {
+                                finalRoutes.push({ source: oSource, targetCoord: row.targetCoord, targetName: '', sendDate: sendDate, arrTime: offsTargetDate, type: offsType, unit: offsUnitKey });
+                            }
+                            currentAttacksForTarget++;
+                        } else {
+                            break; // Свободные оффы полностью исчерпаны
+                        }
+                    }
+                });
+
+                let reserves = offPool.filter(o => o.used < o.maxAllowed).map(o => o.source.coord);
                 $('#reserveOffsExport').val(reserves.join('\n'));
                 $('#reserveCount').text(reserves.length);
 
